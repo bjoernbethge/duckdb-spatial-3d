@@ -127,7 +127,7 @@ struct extent_xy {
 
 		const auto dx = std::max(min.x - other.x, other.x - max.x);
 		const auto dy = std::max(min.y - other.y, other.y - max.y);
-		return std::hypot(dx, dy);
+		return std::sqrt(dx * dx + dy * dy);
 	}
 };
 
@@ -526,6 +526,10 @@ enum class point_in_polygon_result {
 
 class prepared_geometry : public geometry {
 public:
+	explicit prepared_geometry(geometry_type type = geometry_type::INVALID, bool has_z = false, bool has_m = false)
+		: geometry(type, has_z, has_m) {
+	}
+
 	// Construct the prepared geometry by indexing the vertex array
 	void build(allocator &allocator);
 
@@ -540,8 +544,8 @@ public:
 
 private:
 	struct prepared_index {
-		static constexpr uint32_t NODE_SIZE = 4;
-		static constexpr uint32_t MAX_DEPTH = 16; // 8^16 > max(uint32_t)
+		static constexpr uint32_t NODE_SIZE = 32;
+		static constexpr uint32_t MAX_DEPTH = 8; // 32^8 > max(uint32_t)
 
 		struct level {
 			extent_xy*	entry_array;
@@ -549,7 +553,8 @@ private:
 		};
 		level*		level_array;
 		uint32_t	level_count;
-		bool		is_ccw = false;
+
+		uint32_t    items_count; // Total number of leaf items in the index
 	};
 
 	prepared_index index = {};

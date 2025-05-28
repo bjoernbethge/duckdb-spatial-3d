@@ -1,9 +1,12 @@
 #include "sgl.hpp"
 
+#include "duckdb/common/assert.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <queue>
 
 //======================================================================================================================
 // Internal Algorithms
@@ -35,7 +38,7 @@ double vertex_array_length(const geometry &geom) {
 
 		const auto dx = next.x - prev.x;
 		const auto dy = next.y - prev.y;
-		length += std::hypot(dx, dy);
+		length += std::sqrt(dx * dx + dy * dy);
 		prev = next;
 	}
 
@@ -653,7 +656,7 @@ bool linestring::interpolate(const geometry &geom, double frac, vertex_xyzm &out
 		const auto dx = next.x - prev.x;
 		const auto dy = next.y - prev.y;
 
-		const auto segment_length = std::hypot(dx, dy);
+		const auto segment_length = std::sqrt(dx * dx + dy * dy);
 
 		if(length + segment_length >= target_length) {
 			const auto remaining = target_length - length;
@@ -730,7 +733,7 @@ void linestring::interpolate_points(allocator &alloc, const geometry &geom, doub
 		const auto dx = next.x - prev.x;
 		const auto dy = next.y - prev.y;
 
-		const auto segment_length = std::hypot(dx, dy);
+		const auto segment_length = std::sqrt(dx * dx + dy * dy);
 
 		// There can be multiple points on the same segment, so we need to loop here
 		while (total_length + segment_length >= next_target) {
@@ -834,7 +837,7 @@ void linestring::substring(allocator &alloc, const geometry &geom, double beg_fr
 		memcpy(&next, vertex_array + vertex_idx * vertex_width, vertex_width);
 		const auto dx = next.x - prev.x;
 		const auto dy = next.y - prev.y;
-		const auto segment_length = std::hypot(dx, dy);
+		const auto segment_length = std::sqrt(dx * dx + dy * dy);
 
 		if(length + segment_length >= beg_length) {
 			const auto remaining = beg_length - length;
@@ -856,7 +859,7 @@ void linestring::substring(allocator &alloc, const geometry &geom, double beg_fr
 		memcpy(&next, vertex_array + vertex_idx * vertex_width, vertex_width);
 		const auto dx = next.x - prev.x;
 		const auto dy = next.y - prev.y;
-		const auto segment_length = std::hypot(dx, dy);
+		const auto segment_length = std::sqrt(dx * dx + dy * dy);
 
 		if(length + segment_length >= end_length) {
 			const auto remaining = end_length - length;
@@ -985,7 +988,7 @@ bool ops::get_centroid_from_linestrings(const geometry &geom, vertex_xyzm &out) 
 			const auto dx = next.x - prev.x;
 			const auto dy = next.y - prev.y;
 
-			const auto segment_length = std::hypot(dx, dy);
+			const auto segment_length = std::sqrt(dx * dx + dy * dy);
 
 			centroid.x += (next.x + prev.x) * segment_length;
 			centroid.y += (next.y + prev.y) * segment_length;
@@ -1383,7 +1386,9 @@ double vertex_distance_squared(const vertex_xy &lhs, const vertex_xy &rhs) {
 }
 
 double vertex_distance(const vertex_xy &lhs, const vertex_xy &rhs) {
-	return std::hypot(lhs.x - rhs.x, lhs.y - rhs.y);
+	const auto dx = lhs.x - rhs.x;
+	const auto dy = lhs.y - rhs.y;
+	return std::sqrt(dx * dx + dy * dy);
 }
 
 double vertex_segment_distance(const vertex_xy &p, const vertex_xy &v, const vertex_xy &w) {
@@ -2253,6 +2258,8 @@ void prepared_geometry::build(allocator &allocator) {
 
 	std::reverse(layer_bound, layer_bound + layer_count);
 
+	index.items_count = vertex_count;
+
 	// Allocate the layers
 	index.level_array = static_cast<prepared_index::level *>(
 		allocator.alloc(sizeof(prepared_index::level) * layer_count));
@@ -2286,8 +2293,8 @@ void prepared_geometry::build(allocator &allocator) {
 		}
 	}
 
-	// Now fill the upper layers
-	for(int64_t i = index.level_count - 2; i >= 0; i--) {
+	// Now fill the upper layers (if we got any)
+	for(int64_t i = static_cast<int64_t>(index.level_count) - 2; i >= 0; i--) {
 		const auto &prev = index.level_array[i + 1];
 		const auto &curr = index.level_array[i];
 
@@ -2308,10 +2315,6 @@ void prepared_geometry::build(allocator &allocator) {
 			}
 		}
 	}
-
-	// Lastly, compute if we are counter-clockwise
-	// TODO: This is O(N), we should cache it.
-	index.is_ccw = vertex_array_signed_area(*this) <= 0;
 
 	// Mark this geometry as prepared
 	set_prepared(true);
@@ -2351,7 +2354,7 @@ point_in_polygon_result prepared_geometry::contains(const vertex_xy &vert) const
 
 			// Now, we are at a leaf, so we need to check the segments
 			const auto beg_idx = entry * NODE_SIZE;
-			const auto end_idx = std::min(beg_idx + NODE_SIZE, (level.entry_count - 1) * NODE_SIZE);
+			const auto end_idx = std::min(beg_idx + NODE_SIZE, index.items_count);
 
 			// Loop over the segments
 			vertex_xy prev;
@@ -2397,7 +2400,6 @@ point_in_polygon_result prepared_geometry::contains(const vertex_xy &vert) const
 }
 
 bool prepared_geometry::try_get_distance(const vertex_xy &vertex, double &distance) const {
-
 	if (!is_prepared()) {
 		return false; // Not prepared
 	}
@@ -2408,11 +2410,83 @@ bool prepared_geometry::try_get_distance(const vertex_xy &vertex, double &distan
 	const auto vertex_array = get_vertex_array();
 	const auto vertex_width = get_vertex_width();
 
-	uint32_t stack[MAX_DEPTH] = {0};
-	uint32_t depth = 0;
+	SGL_ASSERT(std::pow(NODE_SIZE, MAX_DEPTH) > std::numeric_limits<uint32_t>::max());
+
+	// Breath first search, if we expand everything, our max stack size is NODE_SIZE * MAX_DEPTH.
+	// So this is our upper bound.
+
+	//uint32_t stack[NODE_SIZE * MAX_DEPTH] = {0};
+	//uint32_t depth = 0;
 
 	auto min_dist = std::numeric_limits<double>::infinity();
 
+	struct candidate {
+		uint32_t level;
+		uint32_t entry;
+		double dist;
+		candidate(uint32_t level, uint32_t entry, double dist)
+			: level(level), entry(entry), dist(dist) {}
+
+		bool operator<(const candidate &other) const {
+			return dist > other.dist; // reverse for std::priority_queue
+		}
+	};
+
+	// TODO: Use branch and bound instead to avoid allocating the queue
+
+	std::priority_queue<candidate> queue;
+	queue.emplace(0, 0, index.level_array[0].entry_array->distance_to(vertex));
+
+	while (!queue.empty()) {
+		const auto curr = queue.top();
+		queue.pop();
+
+		if (curr.dist >= min_dist) {
+			// We already have the best.
+			break;
+		}
+
+		if (curr.level == index.level_count - 1) {
+			// Leaf node!
+			const auto beg_idx = curr.entry * NODE_SIZE;
+			const auto end_idx = std::min(beg_idx + NODE_SIZE, index.items_count);
+
+			vertex_xy prev;
+			memcpy(&prev, vertex_array + beg_idx * vertex_width, sizeof(vertex_xy));
+			for (uint32_t i = beg_idx + 1; i < end_idx; i++) {
+				vertex_xy next;
+				memcpy(&next, vertex_array + i * vertex_width, sizeof(vertex_xy));
+
+				min_dist = std::min(min_dist, vertex_segment_distance(vertex, prev, next));
+			}
+		} else {
+			// Find child nodes
+			const auto beg_idx = curr.entry * NODE_SIZE;
+			const auto end_idx = std::min(beg_idx + NODE_SIZE, index.level_array[curr.level + 1].entry_count);
+
+			for (auto i = beg_idx; i < end_idx; i++) {
+				// Get the box for this entry
+				const auto &box = index.level_array[curr.level + 1].entry_array[i];
+				const auto box_dist = box.distance_to(vertex);
+				if (box_dist < min_dist) {
+					// We have a candidate, so we can add it to the queue
+					queue.emplace(curr.level + 1, i, box_dist);
+				}
+			}
+		}
+	}
+
+	distance = min_dist;
+	return true;
+}
+
+
+
+
+
+	// 4294967295
+	// 34359738368
+	/*
 	while(true) {
 		const auto &level = index.level_array[depth];
 		const auto entry = stack[depth];
@@ -2421,6 +2495,10 @@ bool prepared_geometry::try_get_distance(const vertex_xy &vertex, double &distan
 		const auto box_dist = box.distance_to(vertex);
 
 		if(box_dist < min_dist) {
+
+			// TODO: More intelligent searching
+			// TODO: Limit search here?
+			//min_dist = box_dist;
 
 			if (depth != index.level_count - 1) {
 				// We are not at a leaf, so go downwards
@@ -2462,7 +2540,9 @@ bool prepared_geometry::try_get_distance(const vertex_xy &vertex, double &distan
 			depth--;
 		}
 	}
+
 }
+	*/
 
 } // namespace sgl
 //======================================================================================================================
