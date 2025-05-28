@@ -4063,7 +4063,7 @@ struct ST_GeomFromText {
 					    mask.SetInvalid(row_idx);
 					    return string_t {};
 				    }
-			    	const auto error = reader.get_error_message();
+				    const auto error = reader.get_error_message();
 				    throw InvalidInputException(error);
 			    }
 
@@ -4126,7 +4126,6 @@ struct ST_GeomFromWKB {
 	static void ExecuteGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
 		auto &lstate = LocalState::ResetAndGet(state);
 		auto &alloc = lstate.GetAllocator();
-
 
 		sgl::wkb_reader reader(alloc);
 		reader.set_allow_mixed_zm(true);
@@ -5305,28 +5304,28 @@ struct ST_IntersectsExtent {
 	static void Execute(DataChunk &args, ExpressionState &state, Vector &result) {
 		auto &lstate = LocalState::ResetAndGet(state);
 
-		BinaryExecutor::Execute<string_t, string_t, bool>(args.data[0], args.data[1], result, args.size(),
-		                                                  [&](const string_t &lhs_blob, const string_t &rhs_blob) {
-			// TODO: In the future we should store if the geom is
-			// empty/vertex count in the blob
-			sgl::geometry lhs_geom;
-			lstate.Deserialize(lhs_blob, lhs_geom);
+		BinaryExecutor::Execute<string_t, string_t, bool>(
+		    args.data[0], args.data[1], result, args.size(), [&](const string_t &lhs_blob, const string_t &rhs_blob) {
+			    // TODO: In the future we should store if the geom is
+			    // empty/vertex count in the blob
+			    sgl::geometry lhs_geom;
+			    lstate.Deserialize(lhs_blob, lhs_geom);
 
-			sgl::extent_xy lhs_ext = {};
-			if (sgl::ops::get_total_extent_xy(lhs_geom, lhs_ext) == 0) {
-				return false;
-			}
+			    sgl::extent_xy lhs_ext = {};
+			    if (sgl::ops::get_total_extent_xy(lhs_geom, lhs_ext) == 0) {
+				    return false;
+			    }
 
-			sgl::geometry rhs_geom;
-			lstate.Deserialize(rhs_blob, rhs_geom);
+			    sgl::geometry rhs_geom;
+			    lstate.Deserialize(rhs_blob, rhs_geom);
 
-			sgl::extent_xy rhs_ext = {};
-			if (sgl::ops::get_total_extent_xy(rhs_geom, rhs_ext) == 0) {
-				return false;
-			}
+			    sgl::extent_xy rhs_ext = {};
+			    if (sgl::ops::get_total_extent_xy(rhs_geom, rhs_ext) == 0) {
+				    return false;
+			    }
 
-			return lhs_ext.intersects(rhs_ext);
-		});
+			    return lhs_ext.intersects(rhs_ext);
+		    });
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
@@ -6623,16 +6622,16 @@ struct ST_Point {
 	static void ExecuteGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
 		auto &lstate = LocalState::ResetAndGet(state);
 
-		BinaryExecutor::Execute<double, double, string_t>(
-		    args.data[0], args.data[1], result, args.size(), [&](const double x, const double y) {
-			    const double buffer[2] = {x, y};
+		BinaryExecutor::Execute<double, double, string_t>(args.data[0], args.data[1], result, args.size(),
+		                                                  [&](const double x, const double y) {
+			                                                  const double buffer[2] = {x, y};
 
-			    sgl::geometry geometry;
-			    geometry.set_type(sgl::geometry_type::POINT);
-			    geometry.set_vertex_array(buffer, 1);
+			                                                  sgl::geometry geometry;
+			                                                  geometry.set_type(sgl::geometry_type::POINT);
+			                                                  geometry.set_vertex_array(buffer, 1);
 
-			    return lstate.Serialize(result, geometry);
-		    });
+			                                                  return lstate.Serialize(result, geometry);
+		                                                  });
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
@@ -7808,17 +7807,21 @@ struct VertexAggFunctionBase {
 
 			    double res = AGG::Init();
 
-		    	// Ugly. TODO: Fix this whole class.
-		    	struct state_t { double &res; size_t offset; } arg = {res, offset};
+			    // Ugly. TODO: Fix this whole class.
+			    struct state_t {
+				    double &res;
+				    size_t offset;
+			    } arg = {res, offset};
 
-		    	sgl::ops::visit_vertices_xyzm(geom, &arg, [](void *arg_ptr, const sgl::vertex_xyzm &vertex) {
-		    		auto &state = *static_cast<state_t *>(arg_ptr);
+			    sgl::ops::visit_vertices_xyzm(geom, &arg, [](void *arg_ptr, const sgl::vertex_xyzm &vertex) {
+				    auto &state = *static_cast<state_t *>(arg_ptr);
 
-		    		double val = 0.0;
-		    		memcpy(&val, reinterpret_cast<const char*>(&vertex) + state.offset * sizeof(double), sizeof(double));
+				    double val = 0.0;
+				    memcpy(&val, reinterpret_cast<const char *>(&vertex) + state.offset * sizeof(double),
+				           sizeof(double));
 
-		    		state.res = AGG::Merge(state.res, val);
-		    	});
+				    state.res = AGG::Merge(state.res, val);
+			    });
 
 			    return res;
 		    });

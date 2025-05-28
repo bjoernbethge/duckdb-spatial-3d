@@ -22,7 +22,8 @@ static size_t GetRequiredSizeInternal(const sgl::geometry *geom) {
 		// sizeof(vertex) * count;
 		const auto vertex_count = geom->get_vertex_count();
 		return 4 + 4 + vertex_count * vertex_width;
-	} case sgl::geometry_type::POLYGON: {
+	}
+	case sgl::geometry_type::POLYGON: {
 		// Polygons are special because they may pad between the rings and the ring data
 		// 4 bytes for the type
 		// 4 bytes for the length
@@ -141,7 +142,6 @@ static void SerializeRecursive(BinaryWriter &cursor, const sgl::geometry *geom, 
 	// The GeometryType enum used to start with POINT = 0
 	// but now it starts with INVALID = 0, so we need to subtract 1
 	cursor.Write<uint32_t>(static_cast<uint32_t>(type) - 1);
-
 
 	switch (type) {
 	case sgl::geometry_type::POINT:

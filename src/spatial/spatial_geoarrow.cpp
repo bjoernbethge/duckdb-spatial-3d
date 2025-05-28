@@ -80,12 +80,10 @@ struct GeoArrowWKB {
 		reader.set_allow_mixed_zm(true);
 		reader.set_nan_as_empty(true);
 
-
 		UnaryExecutor::ExecuteWithNulls<string_t, string_t>(
 		    source, result, count, [&](const string_t &wkb, ValidityMask &mask, idx_t idx) {
-
-		    	const auto wkb_ptr = wkb.GetDataUnsafe();
-		    	const auto wkb_len = wkb.GetSize();
+			    const auto wkb_ptr = wkb.GetDataUnsafe();
+			    const auto wkb_len = wkb.GetSize();
 
 			    sgl::geometry geom;
 

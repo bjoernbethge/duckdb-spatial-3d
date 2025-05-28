@@ -1144,7 +1144,6 @@ struct DuckDB_Proj_Version {
 	}
 };
 
-
 struct DuckDB_Proj_Compiled_Version {
 
 	static void Execute(DataChunk &args, ExpressionState &state, Vector &result) {

@@ -891,9 +891,10 @@ struct ST_Read : ArrowTableFunction {
 
 			UnaryExecutor::Execute<string_t, string_t>(source, target, count, [&](const string_t &wkb) {
 				const auto wkb_ptr = wkb.GetDataUnsafe();
-				const auto wkb_len =  wkb.GetSize();
+				const auto wkb_len = wkb.GetSize();
 
-				sgl::geometry geom;;
+				sgl::geometry geom;
+				;
 
 				if (!wkb_reader.try_parse(geom, wkb_ptr, wkb_len)) {
 					const auto error = wkb_reader.get_error_message();
