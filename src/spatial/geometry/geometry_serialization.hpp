@@ -5,7 +5,7 @@
 namespace sgl {
 class geometry;
 class prepared_geometry;
-}
+} // namespace sgl
 
 namespace duckdb {
 
@@ -17,7 +17,7 @@ struct Serde {
 	static void Serialize(const sgl::geometry &geom, char *buffer, size_t buffer_size);
 	static void Deserialize(sgl::geometry &result, ArenaAllocator &arena, const char *buffer, size_t buffer_size);
 	static void DeserializePrepared(sgl::prepared_geometry &result, ArenaAllocator &arena, const char *buffer,
-	                               size_t buffer_size);
+	                                size_t buffer_size);
 };
 
 } // namespace duckdb

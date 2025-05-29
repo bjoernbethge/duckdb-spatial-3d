@@ -543,6 +543,9 @@ public:
 	static void make(allocator &allocator, const geometry &geom, prepared_geometry &result);
 
 private:
+
+	bool try_get_distance_recursive(uint32_t depth, uint32_t entry, const vertex_xy &vertex, double &distance) const;
+
 	struct prepared_index {
 		static constexpr uint32_t NODE_SIZE = 32;
 		static constexpr uint32_t MAX_DEPTH = 8; // 32^8 > max(uint32_t)

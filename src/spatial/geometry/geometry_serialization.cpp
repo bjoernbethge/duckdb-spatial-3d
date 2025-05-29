@@ -330,7 +330,6 @@ void Serde::Deserialize(sgl::geometry &result, ArenaAllocator &arena, const char
 	DeserializeRecursive(cursor, result, has_z, has_m, arena);
 }
 
-
 static void DeserializePreparedRecursive(BinaryReader &cursor, sgl::prepared_geometry &geom, const bool has_z,
                                          const bool has_m, GeometryAllocator &alloc) {
 	const auto count = cursor.Read<uint32_t>();

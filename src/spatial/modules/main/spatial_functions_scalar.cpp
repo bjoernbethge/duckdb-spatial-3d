@@ -2302,8 +2302,11 @@ struct ST_Distance {
 		auto &lhs_vec = args.data[0];
 		auto &rhs_vec = args.data[1];
 
-		const auto lhs_is_const = lhs_vec.GetVectorType() == VectorType::CONSTANT_VECTOR && !ConstantVector::IsNull(lhs_vec);;
-		const auto rhs_is_const = rhs_vec.GetVectorType() == VectorType::CONSTANT_VECTOR && !ConstantVector::IsNull(rhs_vec);
+		const auto lhs_is_const =
+		    lhs_vec.GetVectorType() == VectorType::CONSTANT_VECTOR && !ConstantVector::IsNull(lhs_vec);
+		;
+		const auto rhs_is_const =
+		    rhs_vec.GetVectorType() == VectorType::CONSTANT_VECTOR && !ConstantVector::IsNull(rhs_vec);
 
 		if (lhs_is_const && rhs_is_const) {
 			result.SetVectorType(VectorType::CONSTANT_VECTOR);
@@ -2322,8 +2325,7 @@ struct ST_Distance {
 			} else {
 				ConstantVector::GetData<double>(result)[0] = 0.0; // TODO: Null
 			}
-		}
-		else if (lhs_is_const != rhs_is_const) {
+		} else if (lhs_is_const != rhs_is_const) {
 
 			// One of the two is const, prepare the const one and execute on the non-const one
 			auto &const_vec = lhs_is_const ? lhs_vec : rhs_vec;
@@ -2334,39 +2336,36 @@ struct ST_Distance {
 			sgl::prepared_geometry const_geom;
 			lstate.Deserialize(const_blob, const_geom);
 
-			UnaryExecutor::Execute<string_t, double>(
-				probe_vec, result, count, [&](const string_t &probe_blob) {
-					sgl::geometry probe_geom;
-					lstate.Deserialize(probe_blob, probe_geom);
+			UnaryExecutor::Execute<string_t, double>(probe_vec, result, count, [&](const string_t &probe_blob) {
+				sgl::geometry probe_geom;
+				lstate.Deserialize(probe_blob, probe_geom);
 
-					// Calculate the distance
-					double distance = 0.0;
-					if (sgl::ops::get_euclidean_distance(const_geom, probe_geom, distance)) {
-						return distance;
-					}
-					return 0.0; // TODO: Null
+				// Calculate the distance
+				double distance = 0.0;
+				if (sgl::ops::get_euclidean_distance(const_geom, probe_geom, distance)) {
+					return distance;
+				}
+				return 0.0; // TODO: Null
 			});
-		}
-		else {
+		} else {
 			// Both are non-const
 			BinaryExecutor::Execute<string_t, string_t, double>(
-				args.data[0], args.data[1], result, count, [&](const string_t &blob1, const string_t &blob2) {
+			    args.data[0], args.data[1], result, count, [&](const string_t &blob1, const string_t &blob2) {
+				    sgl::geometry geom1;
+				    sgl::geometry geom2;
 
-					sgl::geometry geom1;
-					sgl::geometry geom2;
+				    lstate.Deserialize(blob1, geom1);
+				    lstate.Deserialize(blob2, geom2);
 
-					lstate.Deserialize(blob1, geom1);
-					lstate.Deserialize(blob2, geom2);
+				    // Calculate the distance
+				    double distance = 0.0;
+				    if (sgl::ops::get_euclidean_distance(geom1, geom2, distance)) {
+					    return distance;
+				    }
 
-					// Calculate the distance
-					double distance = 0.0;
-					if (sgl::ops::get_euclidean_distance(geom1, geom2, distance)) {
-						return distance;
-					}
-
-					// TODO: Null
-					return 0.0;
-				});
+				    // TODO: Null
+				    return 0.0;
+			    });
 		}
 	}
 

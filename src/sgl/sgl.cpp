@@ -2399,150 +2399,125 @@ point_in_polygon_result prepared_geometry::contains(const vertex_xy &vert) const
 	}
 }
 
+// We use the "Branch and Bound" algorithm to find the distance.
+// The reason for this (instead of e.g. Best-First-Search) is that we don't need to allocate or manipulate a  priority
+// queue, which is more expensive than just the stack. The stack is basically shallowly bounded due to
+// the large fan-out of the tree and doesn't require allocating any memory on the heap. In comparison, the worst-case
+// in Best-First-Search requires us to keep track of all nodes in the priority queue.
+//
+// The trick of the branch-and-bound algorithm is to compute the worst case upper bound of the distance for all the
+// child nodes in a node, and only expand a child node if its minimum distance is smaller than the worst-case upper bound
+//
+// Basically, the distance to a box is an optimistic lower bound for the distance to the closest element within it,
+// but the "minimum maximum distance" is a pessimistic upper bound.
+//
+bool prepared_geometry::try_get_distance_recursive(uint32_t level, uint32_t entry, const vertex_xy &vertex, double &distance) const {
+
+	constexpr auto NODE_SIZE = prepared_index::NODE_SIZE;
+
+	if (level == index.level_count - 1 || level == prepared_index::MAX_DEPTH) {
+		// We are at the leaf level, so we need to check the segments
+		const auto vertex_array = get_vertex_array();
+		const auto vertex_width = get_vertex_width();
+
+		const auto beg_idx = entry * NODE_SIZE;
+		const auto end_idx = std::min(beg_idx + NODE_SIZE, index.items_count);
+
+		if (beg_idx >= end_idx) {
+			return false; // No segments to check
+		}
+
+		vertex_xy prev;
+		memcpy(&prev, vertex_array + beg_idx * vertex_width, sizeof(vertex_xy));
+		for (uint32_t i = beg_idx + 1; i < end_idx; i++) {
+			vertex_xy next;
+			memcpy(&next, vertex_array + i * vertex_width, sizeof(vertex_xy));
+
+			distance = std::min(distance, vertex_segment_distance(vertex, prev, next));
+		}
+
+		return true; // We found a distance
+	}
+
+	// Find child nodes
+	const auto beg_idx = entry * NODE_SIZE;
+	const auto end_idx = std::min(beg_idx + NODE_SIZE, index.level_array[level + 1].entry_count);
+
+	if (beg_idx >= end_idx) {
+		return false; // No child nodes to check
+	}
+
+	const auto get_min_max_distance = [](const extent_xy &r, const vertex_xy &q) {
+		const auto squared = [](const double &x) {
+			return x * x;
+		};
+
+		const double qx = q.x, qy = q.y;
+		const double min_x = r.min.x, max_x = r.max.x;
+		const double min_y = r.min.y, max_y = r.max.y;
+
+		// Case 1: k = x
+		const double rmk_x = (qx <= (min_x + max_x) / 2.0) ? min_x : max_x;
+		const double rMi_y = (qy <= (min_y + max_y) / 2.0) ? max_y : min_y;
+
+		const double term1 = squared(rmk_x - qx) + squared(rMi_y - qy);
+
+		// Case 2: k = y
+		const double rmk_y = (qy <= (min_y + max_y) / 2.0) ? min_y : max_y;
+		const double rMi_x = (qx <= (min_x + max_x) / 2.0) ? max_x : min_x;
+
+		const double term2 = squared(rmk_y - qy) + squared(rMi_x - qx);
+
+		return std::max(std::min(term1, term2), 0.0); // Ensure we don't have negative distances
+	};
+
+	const auto get_min_distance = [](const extent_xy &r, const vertex_xy &q) {
+		const double dx = (q.x < r.min.x) ? r.min.x - q.x : (q.x > r.max.x) ? q.x - r.max.x : 0.0;
+		const double dy = (q.y < r.min.y) ? r.min.y - q.y : (q.y > r.max.y) ? q.y - r.max.y : 0.0;
+		return std::max((dx * dx + dy * dy), 0.0); // Ensure we don't have negative distances
+	};
+
+	// Compute the minimum maximum distance for this level
+	auto min_max_dist = std::numeric_limits<double>::infinity();
+	for (auto i = beg_idx; i < end_idx; i++) {
+		// Get the box for this entry
+		const auto &box = index.level_array[level + 1].entry_array[i];
+		min_max_dist = std::min(min_max_dist, get_min_max_distance(box, vertex));
+	}
+
+	bool found_any = false;
+
+	// Now we can check the child nodes
+	for (auto i = beg_idx; i < end_idx; i++) {
+
+		const auto &box = index.level_array[level + 1].entry_array[i];
+		const auto min_dist = get_min_distance(box, vertex);
+
+		// Use a small epsilon to avoid floating point issues
+		// Because this is an optimization (a pessimistic upper bound), its ok if we are a bit too pessimistic
+		// We will just check some more boxes than theoretically neccessary, but the result will still be correct
+		if (min_dist > min_max_dist + 1e-6) {
+			continue;
+		}
+
+		found_any |= try_get_distance_recursive(level + 1, i, vertex, distance);
+	}
+
+	return found_any;
+}
+
+
 bool prepared_geometry::try_get_distance(const vertex_xy &vertex, double &distance) const {
 	if (!is_prepared()) {
 		return false; // Not prepared
 	}
-
-	constexpr auto NODE_SIZE = prepared_index::NODE_SIZE;
-	constexpr auto MAX_DEPTH = prepared_index::MAX_DEPTH;
-
-	const auto vertex_array = get_vertex_array();
-	const auto vertex_width = get_vertex_width();
-
-	SGL_ASSERT(std::pow(NODE_SIZE, MAX_DEPTH) > std::numeric_limits<uint32_t>::max());
-
-	// Breath first search, if we expand everything, our max stack size is NODE_SIZE * MAX_DEPTH.
-	// So this is our upper bound.
-
-	//uint32_t stack[NODE_SIZE * MAX_DEPTH] = {0};
-	//uint32_t depth = 0;
-
-	auto min_dist = std::numeric_limits<double>::infinity();
-
-	struct candidate {
-		uint32_t level;
-		uint32_t entry;
-		double dist;
-		candidate(uint32_t level, uint32_t entry, double dist)
-			: level(level), entry(entry), dist(dist) {}
-
-		bool operator<(const candidate &other) const {
-			return dist > other.dist; // reverse for std::priority_queue
-		}
-	};
-
-	// TODO: Use branch and bound instead to avoid allocating the queue
-
-	std::priority_queue<candidate> queue;
-	queue.emplace(0, 0, index.level_array[0].entry_array->distance_to(vertex));
-
-	while (!queue.empty()) {
-		const auto curr = queue.top();
-		queue.pop();
-
-		if (curr.dist >= min_dist) {
-			// We already have the best.
-			break;
-		}
-
-		if (curr.level == index.level_count - 1) {
-			// Leaf node!
-			const auto beg_idx = curr.entry * NODE_SIZE;
-			const auto end_idx = std::min(beg_idx + NODE_SIZE, index.items_count);
-
-			vertex_xy prev;
-			memcpy(&prev, vertex_array + beg_idx * vertex_width, sizeof(vertex_xy));
-			for (uint32_t i = beg_idx + 1; i < end_idx; i++) {
-				vertex_xy next;
-				memcpy(&next, vertex_array + i * vertex_width, sizeof(vertex_xy));
-
-				min_dist = std::min(min_dist, vertex_segment_distance(vertex, prev, next));
-			}
-		} else {
-			// Find child nodes
-			const auto beg_idx = curr.entry * NODE_SIZE;
-			const auto end_idx = std::min(beg_idx + NODE_SIZE, index.level_array[curr.level + 1].entry_count);
-
-			for (auto i = beg_idx; i < end_idx; i++) {
-				// Get the box for this entry
-				const auto &box = index.level_array[curr.level + 1].entry_array[i];
-				const auto box_dist = box.distance_to(vertex);
-				if (box_dist < min_dist) {
-					// We have a candidate, so we can add it to the queue
-					queue.emplace(curr.level + 1, i, box_dist);
-				}
-			}
-		}
+	auto dist = std::numeric_limits<double>::infinity();
+	if (try_get_distance_recursive(0, 0, vertex, dist)) {
+		distance = dist;
+		return true; // We found a distance
 	}
-
-	distance = min_dist;
-	return true;
+	return false; // No distance found
 }
-
-
-
-
-
-	// 4294967295
-	// 34359738368
-	/*
-	while(true) {
-		const auto &level = index.level_array[depth];
-		const auto entry = stack[depth];
-		const auto &box = level.entry_array[entry];
-
-		const auto box_dist = box.distance_to(vertex);
-
-		if(box_dist < min_dist) {
-
-			// TODO: More intelligent searching
-			// TODO: Limit search here?
-			//min_dist = box_dist;
-
-			if (depth != index.level_count - 1) {
-				// We are not at a leaf, so go downwards
-				depth++;
-				stack[depth] = entry * NODE_SIZE;
-				continue;
-			}
-
-			// Now, we are at a leaf, so we need to check the segments
-			const auto beg_idx = entry * NODE_SIZE;
-			const auto end_idx = std::min(beg_idx + NODE_SIZE, (level.entry_count - 1) * NODE_SIZE);
-
-			// Loop over the segments
-			vertex_xy prev;
-			memcpy(&prev, vertex_array + beg_idx * vertex_width, sizeof(vertex_xy));
-			for (uint32_t i = beg_idx + 1; i < end_idx; i++) {
-				vertex_xy next;
-				memcpy(&next, vertex_array + i * vertex_width, sizeof(vertex_xy));
-
-				min_dist = std::min(min_dist, vertex_segment_distance(vertex, prev, next));
-			}
-		}
-
-		while(true) {
-
-			if(depth == 0) {
-				// we are done!
-				distance = min_dist;
-				return true;
-			}
-
-			if(stack[depth] != index.level_array[depth].entry_count -1 ) {
-				// Go sideways!
-				stack[depth]++;
-				break;
-			}
-
-			// Go upwards!
-			depth--;
-		}
-	}
-
-}
-	*/
 
 } // namespace sgl
 //======================================================================================================================
