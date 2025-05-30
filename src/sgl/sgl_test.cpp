@@ -746,20 +746,61 @@ void test_prepared_geometry() {
 	"(0 0, 0 2, 0 4, 0 6, 0 8, 0 10, 2 10, 4 10, 6 10, 8 10, 10 10, 10 8, 10 6, 10 4, 10 2, 10 0, 8 0, 6 0, 4 0, 2 0, 0 0),"
 	"(1 1, 3 1, 5 1, 7 1, 9 1, 9 3, 9 5, 9 7, 9 9, 7 9, 5 9, 3 9, 1 9, 1 7, 1 5, 1 3, 1 1))";
 
-	//parse_and_compare(big_donut, "POINT(0.5 0.5)", true, 0.0);
-	//parse_and_compare("POINT(0.5 0.5)", big_donut, true, 0.0);
-	//parse_and_compare(big_donut_reversed, "POINT(0.5 0.5)", true, 0.0);
-	//parse_and_compare("POINT(0.5 0.5)", big_donut_reversed, true, 0.0);
+	// Point in polygon surface
+	parse_and_compare(big_donut, "POINT(0.5 0.5)", true, 0.0);
+	parse_and_compare("POINT(0.5 0.5)", big_donut, true, 0.0);
+	parse_and_compare(big_donut_reversed, "POINT(0.5 0.5)", true, 0.0);
+	parse_and_compare("POINT(0.5 0.5)", big_donut_reversed, true, 0.0);
 
-	//parse_and_compare("POINT(15 0)", big_donut, true, 5.0);
-	//parse_and_compare(big_donut, "POINT(15 0)", true, 5.0);
-	//parse_and_compare("POINT(15 0)", big_donut_reversed, true, 5.0);
-	//parse_and_compare(big_donut_reversed, "POINT(15 0)", true, 5.0);
+	// Point outside polygon
+	parse_and_compare("POINT(15 0)", big_donut, true, 5.0);
+	parse_and_compare(big_donut, "POINT(15 0)", true, 5.0);
+	parse_and_compare("POINT(15 0)", big_donut_reversed, true, 5.0);
+	parse_and_compare(big_donut_reversed, "POINT(15 0)", true, 5.0);
 
+	// Point in polygon hole
 	parse_and_compare("POINT(5 5)", big_donut, true, 4.0);
 	parse_and_compare(big_donut, "POINT(5 5)", true, 4.0);
 	parse_and_compare("POINT(5 5)", big_donut_reversed, true, 4.0);
 	parse_and_compare(big_donut_reversed, "POINT(5 5)", true, 4.0);
+
+	// Point on polygon border
+	parse_and_compare("POINT(2 10)", big_donut, true, 0.0);
+	parse_and_compare(big_donut, "POINT(2 10)", true, 0.0);
+	parse_and_compare("POINT(2 10)", big_donut_reversed, true, 0.0);
+	parse_and_compare(big_donut_reversed, "POINT(2 10)", true, 0.0);
+
+	// Point on polygon hole border
+	parse_and_compare("POINT(9 5)", big_donut, true, 0.0);
+	parse_and_compare(big_donut, "POINT(9 5)", true, 0.0);
+	parse_and_compare("POINT(9 5)", big_donut_reversed, true, 0.0);
+	parse_and_compare(big_donut_reversed, "POINT(9 5)", true, 0.0);
+
+	// Crossing linestrings (distance should be 0)
+	static constexpr auto line_a = "LINESTRING(0 0, 0 10, 10 10, 10 0)";
+	static constexpr auto line_b = "LINESTRING(0 5, 5 5, 5 10, 10 10)";
+	parse_and_compare(line_a, line_b, true, 0.0);
+	parse_and_compare(line_b, line_a, true, 0.0);
+
+	// Non crossing linestrings
+	static constexpr auto line_c = "LINESTRING(0 0, 0 5, 0 10)";
+	static constexpr auto line_d = "LINESTRING(5 0, 5 10)";
+	parse_and_compare(line_c, line_d, true, 5.0);
+	parse_and_compare(line_d, line_c, true, 5.0);
+
+
+	static constexpr auto geom_col = "GEOMETRYCOLLECTION("
+		"POINT(0 0), "
+		"LINESTRING(0 0, 0 10, 10 10, 10 0), "
+		"POLYGON((0 0, 0 2, 2 2, 2 0, 0 0)), "
+		"MULTIPOINT(5 5, 6 6))";
+
+	// Now compare a geometry collection with a point
+	parse_and_compare(geom_col, "POINT(0 0)", true, 0.0);
+	parse_and_compare("POINT(0 0)", geom_col, true, 0.0);
+
+	parse_and_compare("POINT(5 5)", geom_col, true, 0.0);
+	parse_and_compare(geom_col, "POINT(5 5)", true, 0.0);
 }
 
 void test_misc_coverage() {
