@@ -2494,8 +2494,8 @@ struct ST_DistanceWithin {
 				});
 		} else {
 			// No distance argument, so we use the bind data
-			auto &func_expr = state.expr.Cast<BoundFunctionExpression>();
-			auto &bind_data = func_expr.bind_info->Cast<BindData>();
+			const auto &func_expr = state.expr.Cast<BoundFunctionExpression>();
+			const auto &bind_data = func_expr.bind_info->Cast<BindData>();
 
 			const auto distance = bind_data.distance;
 
@@ -2544,8 +2544,6 @@ struct ST_DistanceWithin {
 						}
 						return false; // TODO: Null
 					});
-
-				return;
 			} else {
 				BinaryExecutor::Execute<string_t, string_t, bool>(
 					lhs_vec, rhs_vec, result, count,

@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 #ifdef DUCKDB_SPATIAL_EXTENSION
 #include "duckdb/common/assert.hpp"
