@@ -344,29 +344,6 @@ struct PointCasts {
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
-	// POINT_2D -> POINT_3D
-	//------------------------------------------------------------------------------------------------------------------
-	static bool ToPoint3DCastFrom2D(Vector &source, Vector &result, idx_t count, CastParameters &) {
-		auto &children = StructVector::GetEntries(source);
-		const auto &x_child = children[0];
-		const auto &y_child = children[1];
-
-		const auto &result_children = StructVector::GetEntries(result);
-		const auto &result_x_child = result_children[0];
-		const auto &result_y_child = result_children[1];
-		const auto &result_z_child = result_children[2];
-
-		result_x_child->Reference(*x_child);
-		result_y_child->Reference(*y_child);
-		result_z_child->Reference(0); // fill with zero
-
-		if (count == 1) {
-			result.SetVectorType(VectorType::CONSTANT_VECTOR);
-		}
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
 	static void Register(DatabaseInstance &db) {
@@ -390,8 +367,6 @@ struct PointCasts {
 		                                    BoundCastInfo(FromGeometryCast3D, nullptr, LocalState::InitCast), 1);
 		// POINT_3D -> POINT_2D
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POINT_3D(), GeoTypes::POINT_2D(), ToPoint2DCast, 1);
-		// POINT_2D -> POINT_3D
-		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POINT_2D(), GeoTypes::POINT_3D(), ToPoint3DCastFrom2D, 1);
 		// POINT_4D -> POINT_2D
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POINT_4D(), GeoTypes::POINT_2D(), ToPoint2DCast, 1);
 	}
