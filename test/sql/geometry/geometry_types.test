@@ -115,7 +115,7 @@ query II
 SELECT ST_GeomFromText('LINESTRING Z (1 1 1, 2 2 2)')::LINESTRING_3D,
        (ST_GeomFromText('LINESTRING Z (1 1 1, 2 2 2)')::LINESTRING_3D)::GEOMETRY
 ----
-LINESTRING Z (1 1 2, 2 2 2)	LINESTRING Z (1 1 2, 2 2 2)
+LINESTRING Z (1 1 1, 2 2 2)	LINESTRING Z (1 1 1, 2 2 2)
 
 query II
 SELECT ST_GeomFromText('POLYGON((1 1, 2 2, 3 3, 1 1))')::POLYGON_2D,
@@ -130,8 +130,8 @@ SELECT ST_GeomFromText('POLYGON((1 1, 2 2, 3 3, 1 1))')::POLYGON_3D,
 POLYGON Z ((1 1 0, 2 2 0, 3 3 0, 1 1 0))	POLYGON Z ((1 1 0, 2 2 0, 3 3 0, 1 1 0))
 
 query II
-SELECT ST_GeomFromText('POLYGON((1 1 1, 2 2 2, 3 3 3, 1 1 1))')::POLYGON_3D,
-       (ST_GeomFromText('POLYGON((1 1 1, 2 2 2, 3 3 3, 1 1 1))')::POLYGON_3D)::GEOMETRY
+SELECT ST_GeomFromText('POLYGON Z((1 1 1, 2 2 2, 3 3 3, 1 1 1))')::POLYGON_3D,
+       (ST_GeomFromText('POLYGON Z((1 1 1, 2 2 2, 3 3 3, 1 1 1))')::POLYGON_3D)::GEOMETRY
 ----
 POLYGON Z ((1 1 1, 2 2 2, 3 3 3, 1 1 1))	POLYGON Z ((1 1 1, 2 2 2, 3 3 3, 1 1 1))
 
