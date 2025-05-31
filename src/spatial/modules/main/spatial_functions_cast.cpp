@@ -250,6 +250,25 @@ struct PointCasts {
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
+	// POINT_3D -> GEOMETRY
+	//------------------------------------------------------------------------------------------------------------------
+	static bool ToGeometryCast3D(Vector &source, Vector &result, idx_t count, CastParameters &parameters) {
+		using POINT_TYPE = StructTypeTernary<double, double, double>;
+		using GEOMETRY_TYPE = PrimitiveType<string_t>;
+
+		auto &lstate = LocalState::ResetAndGet(parameters);
+
+		GenericExecutor::ExecuteUnary<POINT_TYPE, GEOMETRY_TYPE>(source, result, count, [&](const POINT_TYPE &point) {
+			const double buffer[3] = {point.a_val, point.b_val, point.c_val};
+			sgl::geometry geom(sgl::geometry_type::POINT, false, false);
+			geom.set_vertex_data(reinterpret_cast<const uint8_t *>(buffer), 1);
+
+			return lstate.Serialize(result, geom);
+		});
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
 	// GEOMETRY -> POINT_2D
 	//------------------------------------------------------------------------------------------------------------------
 	static bool FromGeometryCast(Vector &source, Vector &result, idx_t count, CastParameters &parameters) {
@@ -290,11 +309,11 @@ struct PointCasts {
 			lstate.Deserialize(blob.val, geom);
 
 			if (geom.get_type() != sgl::geometry_type::POINT) {
-				throw ConversionException("Cannot cast non-point GEOMETRY to POINT_2D");
+				throw ConversionException("Cannot cast non-point GEOMETRY to POINT_3D");
 			}
 			if (geom.is_empty()) {
 				// TODO: Maybe make this return NULL instead
-				throw ConversionException("Cannot cast empty point GEOMETRY to POINT_2D");
+				throw ConversionException("Cannot cast empty point GEOMETRY to POINT_3D");
 			}
 			const auto vertex = geom.get_vertex_xyzm(0);
 			return POINT_TYPE {vertex.x, vertex.y, vertex.zm};
@@ -325,6 +344,30 @@ struct PointCasts {
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
+	// POINT(N) -> POINT_3D
+	//------------------------------------------------------------------------------------------------------------------
+	static bool ToPoint3DCast3D(Vector &source, Vector &result, idx_t count, CastParameters &) {
+		auto &children = StructVector::GetEntries(source);
+		const auto &x_child = children[0];
+		const auto &y_child = children[1];
+		const auto &z_child = children[2];
+
+		const auto &result_children = StructVector::GetEntries(result);
+		const auto &result_x_child = result_children[0];
+		const auto &result_y_child = result_children[1];
+		const auto &result_y_child = result_children[2];
+
+		result_x_child->Reference(*x_child);
+		result_y_child->Reference(*y_child);
+		result_z_child->Reference(*z_child);
+
+		if (count == 1) {
+			result.SetVectorType(VectorType::CONSTANT_VECTOR);
+		}
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
 	static void Register(DatabaseInstance &db) {
@@ -337,6 +380,9 @@ struct PointCasts {
 		// POINT_2D -> GEOMETRY
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POINT_2D(), GeoTypes::GEOMETRY(),
 		                                    BoundCastInfo(ToGeometryCast, nullptr, LocalState::InitCast), 1);
+		// POINT_3D -> GEOMETRY
+		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POINT_3D(), GeoTypes::GEOMETRY(),
+		                                    BoundCastInfo(ToGeometryCast3D, nullptr, LocalState::InitCast), 1);
 		// GEOMETRY -> POINT_2D
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::GEOMETRY(), GeoTypes::POINT_2D(),
 		                                    BoundCastInfo(FromGeometryCast, nullptr, LocalState::InitCast), 1);
@@ -391,6 +437,37 @@ struct LinestringCasts {
 			for (idx_t i = 0; i < line.length; i++) {
 				vertex_data_ptr[i * 2] = x_data[line.offset + i];
 				vertex_data_ptr[i * 2 + 1] = y_data[line.offset + i];
+			}
+
+			sgl::geometry geom(sgl::geometry_type::LINESTRING, false, false);
+			geom.set_vertex_data(vertex_data_mem, line.length);
+
+			return lstate.Serialize(result, geom);
+		});
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// LINESTRING_3D -> GEOMETRY
+	//------------------------------------------------------------------------------------------------------------------
+	static bool ToGeometryCast3D(Vector &source, Vector &result, idx_t count, CastParameters &parameters) {
+		auto &lstate = LocalState::ResetAndGet(parameters);
+		auto &arena = lstate.GetArena();
+
+		auto &coord_vec = ListVector::GetEntry(source);
+		auto &coord_vec_children = StructVector::GetEntries(coord_vec);
+		const auto x_data = FlatVector::GetData<double>(*coord_vec_children[0]);
+		const auto y_data = FlatVector::GetData<double>(*coord_vec_children[1]);
+		const auto z_data = FlatVector::GetData<double>(*coord_vec_children[2]);
+
+		UnaryExecutor::Execute<list_entry_t, string_t>(source, result, count, [&](const list_entry_t &line) {
+			const auto vertex_data_mem = arena.AllocateAligned(sizeof(double) * 3 * line.length);
+			const auto vertex_data_ptr = reinterpret_cast<double *>(vertex_data_mem);
+
+			for (idx_t i = 0; i < line.length; i++) {
+				vertex_data_ptr[i * 3] = x_data[line.offset + i];
+				vertex_data_ptr[i * 3 + 1] = y_data[line.offset + i];
+				vertex_data_ptr[i * 3 + 2] = z_data[line.offset + i];
 			}
 
 			sgl::geometry geom(sgl::geometry_type::LINESTRING, false, false);
@@ -498,6 +575,9 @@ struct LinestringCasts {
 		// LINESTRING_2D -> GEOMETRY
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::LINESTRING_2D(), GeoTypes::GEOMETRY(),
 		                                    BoundCastInfo(ToGeometryCast, nullptr, LocalState::InitCast), 1);
+		// LINESTRING_3D -> GEOMETRY
+		ExtensionUtil::RegisterCastFunction(db, GeoTypes::LINESTRING_3D(), GeoTypes::GEOMETRY(),
+		                                    BoundCastInfo(ToGeometryCast3D, nullptr, LocalState::InitCast), 1);
 		// GEOMETRY -> LINESTRING_2D
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::GEOMETRY(), GeoTypes::LINESTRING_2D(),
 		                                    BoundCastInfo(FromGeometryCast, nullptr, LocalState::InitCast), 1);
@@ -560,6 +640,52 @@ struct PolygonCasts {
 				for (idx_t j = 0; j < ring_entry.length; j++) {
 					ring_data_ptr[j * 2] = x_data[ring_entry.offset + j];
 					ring_data_ptr[j * 2 + 1] = y_data[ring_entry.offset + j];
+				}
+
+				ring_ptr->set_vertex_data(ring_data_mem, ring_entry.length);
+
+				// Append part
+				geom.append_part(ring_ptr);
+			}
+
+			return lstate.Serialize(result, geom);
+		});
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// POLYGON_3D -> GEOMETRY
+	//------------------------------------------------------------------------------------------------------------------
+	static bool ToGeometryCast3D(Vector &source, Vector &result, idx_t count, CastParameters &parameters) {
+		auto &lstate = LocalState::ResetAndGet(parameters);
+		auto &arena = lstate.GetArena();
+
+		auto &ring_vec = ListVector::GetEntry(source);
+		const auto ring_entries = ListVector::GetData(ring_vec);
+		const auto &coord_vec = ListVector::GetEntry(ring_vec);
+		const auto &coord_vec_children = StructVector::GetEntries(coord_vec);
+		const auto x_data = FlatVector::GetData<double>(*coord_vec_children[0]);
+		const auto y_data = FlatVector::GetData<double>(*coord_vec_children[1]);
+		const auto z_data = FlatVector::GetData<double>(*coord_vec_children[2]);
+
+		UnaryExecutor::Execute<list_entry_t, string_t>(source, result, count, [&](const list_entry_t &poly) {
+			sgl::geometry geom(sgl::geometry_type::POLYGON, false, false);
+
+			for (idx_t i = 0; i < poly.length; i++) {
+				const auto ring_entry = ring_entries[poly.offset + i];
+
+				// Allocate part
+				const auto ring_mem = arena.AllocateAligned(sizeof(sgl::geometry));
+				const auto ring_ptr = new (ring_mem) sgl::geometry(sgl::geometry_type::LINESTRING);
+
+				// Allocate data
+				const auto ring_data_mem = arena.AllocateAligned(sizeof(double) * 3 * ring_entry.length);
+				const auto ring_data_ptr = reinterpret_cast<double *>(ring_data_mem);
+
+				for (idx_t j = 0; j < ring_entry.length; j++) {
+					ring_data_ptr[j * 3] = x_data[ring_entry.offset + j];
+					ring_data_ptr[j * 3 + 1] = y_data[ring_entry.offset + j];
+					ring_data_ptr[j * 3 + 2] = z_data[ring_entry.offset + j];
 				}
 
 				ring_ptr->set_vertex_data(ring_data_mem, ring_entry.length);
@@ -725,6 +851,9 @@ struct PolygonCasts {
 		// POLYGON_2D -> GEOMETRY
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POLYGON_2D(), GeoTypes::GEOMETRY(),
 		                                    BoundCastInfo(ToGeometryCast, nullptr, LocalState::InitCast), 1);
+		// POLYGON_3D -> GEOMETRY
+		ExtensionUtil::RegisterCastFunction(db, GeoTypes::POLYGON_3D(), GeoTypes::GEOMETRY(),
+		                                    BoundCastInfo(ToGeometryCast3D, nullptr, LocalState::InitCast), 1);
 		// GEOMETRY -> POLYGON_2D
 		ExtensionUtil::RegisterCastFunction(db, GeoTypes::GEOMETRY(), GeoTypes::POLYGON_2D(),
 		                                    BoundCastInfo(FromGeometryCast, nullptr, LocalState::InitCast), 1);
