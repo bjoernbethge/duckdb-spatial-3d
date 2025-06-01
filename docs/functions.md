@@ -191,18 +191,18 @@ The transformation is applied to all vertices of the geometry.
 ```sql
 -- Translate a point by (2, 3)
 SELECT ST_AsText(ST_Affine(ST_Point(1, 1),
-                        1, 0,   -- a, b
-                        0, 1,   -- d, e
-                        2, 3)); -- xoff, yoff
+                           1, 0,   -- a, b
+                           0, 1,   -- d, e
+                           2, 3)); -- xoff, yoff
 ----
 POINT (3 4)
 
 -- Scale a geometry by factor 2 in X and Y
 SELECT ST_AsText(ST_Affine(ST_Point(1, 1),
-                        2, 0, 0,   -- a, b, c
-                        0, 2, 0,   -- d, e, f
-                        0, 0, 1,   -- g, h, i
-                        0, 0, 0)); -- xoff, yoff, zoff
+                           2, 0, 0,   -- a, b, c
+                           0, 2, 0,   -- d, e, f
+                           0, 0, 1,   -- g, h, i
+                           0, 0, 0)); -- xoff, yoff, zoff
 ----
 POINT (2 2)
 ```
@@ -1743,6 +1743,17 @@ Returns the maximum inscribed circle of the input geometry, optionally with a to
 By default, the tolerance is computed as `max(width, height) / 1000`.
 The return value is a struct with the center of the circle, the nearest point to the center on the boundary of the geometry, and the radius of the circle.
 
+#### Example
+
+```sql
+-- Find the maximum inscribed circle of a square
+SELECT ST_MaximumInscribedCircle(
+    ST_GeomFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))')
+);
+----
+{'center': POINT (5 5), 'nearest': POINT (5 0), 'radius': 5.0}
+```
+
 ----
 
 ### ST_MinimumRotatedRectangle
@@ -1856,6 +1867,17 @@ GEOMETRY ST_Node (geom GEOMETRY)
 #### Description
 
 Returns a "noded" MultiLinestring, produced by combining a collection of input linestrings and adding additional vertices where they intersect.
+
+#### Example
+
+```sql
+-- Create a noded multilinestring from two intersecting lines
+SELECT ST_AsText(ST_Node(
+    ST_GeomFromText('MULTILINESTRING((0 0, 2 2), (0 2, 2 0))')
+));
+----
+MULTILINESTRING ((0 0, 1 1), (1 1, 2 2), (0 2, 1 1), (1 1, 2 0))
+```
 
 ----
 
@@ -2137,6 +2159,17 @@ GEOMETRY ST_Polygonize (geometries GEOMETRY[])
 #### Description
 
 Returns a polygonized representation of the input geometries
+
+#### Example
+
+```sql
+-- Create a polygon from a closed linestring ring
+SELECT ST_AsText(ST_Polygonize([
+    ST_GeomFromText('LINESTRING(0 0, 0 10, 10 10, 10 0, 0 0)')
+]));
+---
+GEOMETRYCOLLECTION (POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0)))
+```
 
 ----
 
@@ -2875,7 +2908,7 @@ SELECT * FROM ST_GeneratePoints({min_x: 0, min_y:0, max_x:10, max_y:10}::BOX_2D,
 #### Signature
 
 ```sql
-ST_Read (col0 VARCHAR, keep_wkb BOOLEAN, max_batch_size INTEGER, sequential_layer_scan BOOLEAN, layer VARCHAR, spatial_filter WKB_BLOB, spatial_filter_box BOX_2D, sibling_files VARCHAR[], allowed_drivers VARCHAR[], open_options VARCHAR[])
+ST_Read (col0 VARCHAR, keep_wkb BOOLEAN, max_batch_size INTEGER, sequential_layer_scan BOOLEAN, layer VARCHAR, sibling_files VARCHAR[], spatial_filter WKB_BLOB, spatial_filter_box BOX_2D, allowed_drivers VARCHAR[], open_options VARCHAR[])
 ```
 
 #### Description
