@@ -2156,25 +2156,35 @@ struct ST_Azimuth {
 	static void ExecuteGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
 		auto &lstate = LocalState::ResetAndGet(state);
 
-		BinaryExecutor::Execute<string_t, string_t, double>(
-		    args.data[0], args.data[1], result, args.size(), [&](const string_t &l_blob, const string_t &r_blob) {
-			    sgl::geometry lhs;
-			    sgl::geometry rhs;
+		BinaryExecutor::ExecuteWithNulls<string_t, string_t, double>(
+		    args.data[0], args.data[1], result, args.size(),
+		    [&](const string_t &left, const string_t &right, ValidityMask &mask, idx_t idx) {
+			    sgl::geometry left_geom;
+			    sgl::geometry right_geom;
 
-			    lstate.Deserialize(l_blob, lhs);
-			    lstate.Deserialize(r_blob, rhs);
+			    lstate.Deserialize(left, left_geom);
+			    lstate.Deserialize(right, right_geom);
 
-			    if (lhs.get_type() != sgl::geometry_type::POINT || rhs.get_type() != sgl::geometry_type::POINT) {
+			    if (left_geom.get_type() != sgl::geometry_type::POINT ||
+			        right_geom.get_type() != sgl::geometry_type::POINT) {
 				    throw InvalidInputException("ST_Azimuth only accepts POINT geometries");
 			    }
 
-			    if (lhs.is_empty() || rhs.is_empty()) {
-				    return std::numeric_limits<double>::quiet_NaN();
+			    if (left_geom.is_empty() || right_geom.is_empty()) {
+				    mask.SetInvalid(idx);
+				    return 0.0;
 			    }
 
-			    const auto lv = lhs.get_vertex_xy(0);
-			    const auto rv = rhs.get_vertex_xy(0);
-				return calcAngle(lv.x, lv.y, rv.x, rv.y);
+			    const auto left_xy = left_geom.get_vertex_xy(0);
+			    const auto right_xy = right_geom.get_vertex_xy(0);
+
+			    // If the points are the same, return NULL
+			    if (left_xy.x == right_xy.x && left_xy.y == right_xy.y) {
+				    mask.SetInvalid(idx);
+				    return 0.0;
+			    }
+
+			    return calcAngle(left_xy.x, left_xy.y, right_xy.x, right_xy.y);
 		    });
 	}
 
@@ -2187,9 +2197,6 @@ struct ST_Azimuth {
 		auto &right = args.data[1];
 		auto count = args.size();
 
-		left.Flatten(count);
-		right.Flatten(count);
-
 		auto &left_entries = StructVector::GetEntries(left);
 		auto &right_entries = StructVector::GetEntries(right);
 
@@ -2198,14 +2205,13 @@ struct ST_Azimuth {
 		auto right_x = FlatVector::GetData<double>(*right_entries[0]);
 		auto right_y = FlatVector::GetData<double>(*right_entries[1]);
 
-		auto &left_validity = FlatVector::Validity(left);
-		auto &right_validity = FlatVector::Validity(right);
+		auto &result_mask = FlatVector::Validity(result);
 
 		auto out_data = FlatVector::GetData<double>(result);
 		for (idx_t i = 0; i < count; i++) {
-			// Check if either one is NULL
-			if (!left_validity.RowIsValid(i) || !right_validity.RowIsValid(i)) {
-				out_data[i] = std::numeric_limits<double>::quiet_NaN();
+			// If the points are the same, return NULL
+			if (left_x[i] == right_x[i] && left_y[i] == right_y[i]) {
+				result_mask.SetInvalid(i);
 				continue;
 			}
 			out_data[i] = calcAngle(left_x[i], left_y[i], right_x[i], right_y[i]);
@@ -2217,15 +2223,10 @@ struct ST_Azimuth {
 	}
 
 	static double calcAngle(double x1, double y1, double x2, double y2) {
-		// Check if points are coincident
-		if (x1 == x2 && y1 == y2) {
-			return std::numeric_limits<double>::quiet_NaN();
-		}
-
 		// atan2 returns angle from positive X axis, counter-clockwise while
 		// we want angle from positive Y axis, clockwise.
 		double azimuth = M_PI / 2.0 - std::atan2(y2 - y1, x2 - x1);
-		
+
 		// ensure angle is positive
 		if (azimuth < 0) {
 			azimuth += 2.0 * M_PI;
@@ -2238,22 +2239,13 @@ struct ST_Azimuth {
 	// Documentation
 	//------------------------------------------------------------------------------------------------------------------
 	static constexpr auto DESCRIPTION = R"(
-		Returns the azimuth in radians of the target point from the origin point, or NaN if the two points are coincident.
-		
-		The azimuth is measured clockwise from true north (positive Y axis). The result is in the range [0, 2π).
-		To convert to degrees, use the degrees() function on the result.
+		Returns the azimuth (a clockwise angle measured from north) of two points in radian.
 	)";
-	
+
 	static constexpr auto EXAMPLE = R"(
-		-- Azimuth between two points (in radians)
-		SELECT ST_Azimuth(ST_Point(0, 0), ST_Point(1, 1));
+		SELECT degrees(ST_Azimuth(ST_Point(0, 0), ST_Point(0, 1)));
 		----
-		0.7853981633974483
-		
-		-- Convert to degrees
-		SELECT degrees(ST_Azimuth(ST_Point(25, 45), ST_Point(75, 100))) AS azimuth_degrees;
-		----
-		41.987
+		90.0
 	)";
 
 	//------------------------------------------------------------------------------------------------------------------
