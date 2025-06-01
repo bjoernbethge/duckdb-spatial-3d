@@ -2194,7 +2194,7 @@ struct ST_Azimuth {
 				    return 0.0;
 			    }
 
-			    return calcAngle(left_xy.x, left_xy.y, right_xy.x, right_xy.y);
+			    return CalcAngle(left_xy.x, left_xy.y, right_xy.x, right_xy.y);
 		    });
 	}
 
@@ -2207,32 +2207,27 @@ struct ST_Azimuth {
 		auto &right = args.data[1];
 		auto count = args.size();
 
-		auto &left_entries = StructVector::GetEntries(left);
-		auto &right_entries = StructVector::GetEntries(right);
+		using POINT_TYPE = StructTypeBinary<double, double>;
+		using AZIMUTH_TYPE = PrimitiveType<double>;
 
-		auto left_x = FlatVector::GetData<double>(*left_entries[0]);
-		auto left_y = FlatVector::GetData<double>(*left_entries[1]);
-		auto right_x = FlatVector::GetData<double>(*right_entries[0]);
-		auto right_y = FlatVector::GetData<double>(*right_entries[1]);
+		GenericExecutor::ExecuteBinary<POINT_TYPE, POINT_TYPE, AZIMUTH_TYPE>(
+		    left, right, result, count, [&](POINT_TYPE left, POINT_TYPE right) {
+				// If the points are the same, return NULL
+				if (left.a_val == right.a_val && left.b_val == right.b_val) {
+					// TODO
+					// result_mask.SetInvalid(i);
+					return 0.0;
+				}
 
-		auto &result_mask = FlatVector::Validity(result);
-
-		auto out_data = FlatVector::GetData<double>(result);
-		for (idx_t i = 0; i < count; i++) {
-			// If the points are the same, return NULL
-			if (left_x[i] == right_x[i] && left_y[i] == right_y[i]) {
-				result_mask.SetInvalid(i);
-				continue;
-			}
-			out_data[i] = calcAngle(left_x[i], left_y[i], right_x[i], right_y[i]);
-		}
+			    return CalcAngle(left.a_val, left.b_val, right.a_val, right.b_val);
+			});
 
 		if (count == 1) {
 			result.SetVectorType(VectorType::CONSTANT_VECTOR);
 		}
 	}
 
-	static double calcAngle(double x1, double y1, double x2, double y2) {
+	static double CalcAngle(double x1, double y1, double x2, double y2) {
 		// atan2 returns angle from positive X axis, counter-clockwise while
 		// we want angle from positive Y axis, clockwise.
 		double azimuth = M_PI / 2.0 - std::atan2(y2 - y1, x2 - x1);
