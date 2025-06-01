@@ -21,6 +21,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}
   cancel-in-progress: true
 
+
 jobs:
   duckdb-latest-build:
     name: Build extension binaries
@@ -29,7 +30,7 @@ jobs:
       duckdb_version: v1.3.0
       extension_name: spatial
       ci_tools_version: main
-      vcpkg_commit: 5e5d0e1cd7785623065e77eff011afdeec1a3574
+      vcpkg_commit: ce613c41372b23b1f51333815feb3edd87ef8a8b
 
   duckdb-latest-deploy:
     name: Deploy extension binaries
