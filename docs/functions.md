@@ -2873,7 +2873,7 @@ Computes the union of a set of input geometries
 #### Signature
 
 ```sql
-None ST_Rotate (geom None, radians None)
+double ST_Rotate (geom GEOMETRY, radians double)
 ```
 
 #### Description
@@ -2888,7 +2888,7 @@ Alias of ST_RotateZ
 #### Signature
 
 ```sql
-None ST_RotateX (geom None, radians None)
+double ST_RotateX (geom GEOMETRY, radians double)
 ```
 
 #### Description
@@ -2912,7 +2912,7 @@ POINT Z (0 0 1)
 #### Signature
 
 ```sql
-None ST_RotateY (geom None, radians None)
+double ST_RotateY (geom GEOMETRY, radians double)
 ```
 
 #### Description
@@ -2936,7 +2936,7 @@ POINT Z (0 0 -1)
 #### Signature
 
 ```sql
-None ST_RotateZ (geom None, radians None)
+double ST_RotateZ (geom GEOMETRY, radians double)
 ```
 
 #### Description
@@ -2960,8 +2960,8 @@ POINT (0 1)
 #### Signatures
 
 ```sql
-None ST_Scale (geom None, xs None, ys None, zs None)
-None ST_Scale (geom None, xs None, ys None)
+double ST_Scale (geom GEOMETRY, xs double, ys double, zs double)
+double ST_Scale (geom GEOMETRY, xs double, ys double)
 ```
 
 ----
@@ -2972,7 +2972,7 @@ None ST_Scale (geom None, xs None, ys None)
 #### Signature
 
 ```sql
-None ST_TransScale (geom None, dx None, dy None, xs None, ys None)
+double ST_TransScale (geom GEOMETRY, dx double, dy double, xs double, ys double)
 ```
 
 #### Description
@@ -2996,8 +2996,8 @@ POINT (4 9)
 #### Signatures
 
 ```sql
-None ST_Translate (geom None, dx None, dy None, dz None)
-None ST_Translate (geom None, dx None, dy None)
+double ST_Translate (geom GEOMETRY, dx double, dy double, dz double)
+double ST_Translate (geom GEOMETRY, dx double, dy double)
 ```
 
 ----

@@ -58,6 +58,19 @@ def write_table_of_contents(f, functions):
 def to_kebab_case(name):
     return name.replace(" ", "-").lower()
 
+# TODO: currently, macro functions cannot contain the information avout the
+#       parameter types, so do some wild guess.
+def guess_param_type_from_name(name):
+    if name == "geom":
+        return "GEOMETRY"
+    return "double"
+
+
+# TODO: Ditto. Currently, all macro functions return double.
+def guess_return_type_from_name(name):
+    return "double"
+
+
 def main():
     with open("./docs/functions.md", "w") as f:
 
@@ -101,8 +114,18 @@ def main():
                 f.write("#### Signature\n\n") if len(function['signatures']) == 1 else f.write("#### Signatures\n\n")
                 f.write("```sql\n")
                 for signature in function['signatures']:
-                    param_list = ", ".join([f"{param['name']} {param['type']}" for param in signature['params']])
-                    f.write(f"{signature['return']} {function['name']} ({param_list})\n")
+                    param_list = ", ".join(
+                        [
+                            f"{param['name']} {param['type'] if param['type'] else guess_param_type_from_name(param['name'])}"
+                            for param in signature["params"]
+                        ]
+                    )
+                    return_type = (
+                        signature["return"]
+                        if signature["return"]
+                        else guess_return_type_from_name(function["name"])
+                    )
+                    f.write(f"{return_type} {function['name']} ({param_list})\n")
                 f.write("```\n\n")
 
 
