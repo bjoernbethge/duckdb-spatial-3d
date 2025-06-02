@@ -66,9 +66,9 @@ def guess_param_type_from_name(name):
     return "double"
 
 
-# TODO: Ditto. Currently, all macro functions return double.
+# TODO: Ditto. Currently, all macro functions return GEOMETRY.
 def guess_return_type_from_name(name):
-    return "double"
+    return "GEOMETRY"
 
 
 def main():
