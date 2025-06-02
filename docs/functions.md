@@ -141,6 +141,18 @@
 | [`ST_Intersection_Agg`](#st_intersection_agg) | Computes the intersection of a set of geometries |
 | [`ST_Union_Agg`](#st_union_agg) | Computes the union of a set of input geometries |
 
+**[Macro Functions](#Macro-functions)**
+
+| Function | Summary |
+| --- | --- |
+| [`ST_Rotate`](#st_rotate) | Alias of ST_RotateZ |
+| [`ST_RotateX`](#st_rotatex) | Rotates a geometry around the X axis. This is a shorthand macro for calling ST_Affine. |
+| [`ST_RotateY`](#st_rotatey) | Rotates a geometry around the Y axis. This is a shorthand macro for calling ST_Affine. |
+| [`ST_RotateZ`](#st_rotatez) | Rotates a geometry around the Z axis. This is a shorthand macro for calling ST_Affine. |
+| [`ST_Scale`](#st_scale) |  |
+| [`ST_TransScale`](#st_transscale) | Translates and then scales a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine. |
+| [`ST_Translate`](#st_translate) |  |
+
 **[Table Functions](#table-functions)**
 
 | Function | Summary |
@@ -149,6 +161,7 @@
 | [`ST_GeneratePoints`](#st_generatepoints) | Generates a set of random points within the specified bounding box. |
 | [`ST_Read`](#st_read) | Read and import a variety of geospatial file formats using the GDAL library. |
 | [`ST_ReadOSM`](#st_readosm) | The `ST_ReadOsm()` table function enables reading compressed OpenStreetMap data directly from a `.osm.pbf file.` |
+| [`ST_ReadSHP`](#st_readshp) |  |
 | [`ST_Read_Meta`](#st_read_meta) | Read the metadata from a variety of geospatial file formats using the GDAL library. |
 
 ----
@@ -2854,6 +2867,143 @@ Computes the union of a set of input geometries
 
 ----
 
+## Macro Functions
+
+### ST_Rotate
+
+
+#### Signature
+
+```sql
+None ST_Rotate (geom None, radians None)
+```
+
+#### Description
+
+Alias of ST_RotateZ
+
+----
+
+### ST_RotateX
+
+
+#### Signature
+
+```sql
+None ST_RotateX (geom None, radians None)
+```
+
+#### Description
+
+Rotates a geometry around the X axis. This is a shorthand macro for calling ST_Affine.
+
+#### Example
+
+```sql
+-- Rotate a 3D point 90 degrees (π/2 radians) around the X-axis
+SELECT ST_RotateX(ST_GeomFromText('POINT Z(0 1 0)'), pi()/2);
+----
+POINT Z (0 0 1)
+```
+
+----
+
+### ST_RotateY
+
+
+#### Signature
+
+```sql
+None ST_RotateY (geom None, radians None)
+```
+
+#### Description
+
+Rotates a geometry around the Y axis. This is a shorthand macro for calling ST_Affine.
+
+#### Example
+
+```sql
+-- Rotate a 3D point 90 degrees (π/2 radians) around the Y-axis
+SELECT ST_RotateY(ST_GeomFromText('POINT Z(1 0 0)'), pi()/2);
+----
+POINT Z (0 0 -1)
+```
+
+----
+
+### ST_RotateZ
+
+
+#### Signature
+
+```sql
+None ST_RotateZ (geom None, radians None)
+```
+
+#### Description
+
+Rotates a geometry around the Z axis. This is a shorthand macro for calling ST_Affine.
+
+#### Example
+
+```sql
+-- Rotate a point 90 degrees (π/2 radians) around the Z-axis
+SELECT ST_RotateZ(ST_Point(1, 0), pi()/2);
+----
+POINT (0 1)
+```
+
+----
+
+### ST_Scale
+
+
+#### Signatures
+
+```sql
+None ST_Scale (geom None, xs None, ys None, zs None)
+None ST_Scale (geom None, xs None, ys None)
+```
+
+----
+
+### ST_TransScale
+
+
+#### Signature
+
+```sql
+None ST_TransScale (geom None, dx None, dy None, xs None, ys None)
+```
+
+#### Description
+
+Translates and then scales a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine.
+
+#### Example
+
+```sql
+-- Translate by (1, 2) then scale by (2, 3)
+SELECT ST_TransScale(ST_Point(1, 1), 1, 2, 2, 3);
+----
+POINT (4 9)
+```
+
+----
+
+### ST_Translate
+
+
+#### Signatures
+
+```sql
+None ST_Translate (geom None, dx None, dy None, dz None)
+None ST_Translate (geom None, dx None, dy None)
+```
+
+----
+
 ## Table Functions
 
 ### ST_Drivers
@@ -3000,6 +3150,16 @@ LIMIT 5;
 │ node                 │ 123566 │ {highway=traffic_s…  │         │ 54.617268200000005 │  8.9718171 │           │                        │
 │ node                 │ 125801 │ {TMC:cid_58:tabcd_…  │         │ 53.070685000000005 │  8.7819939 │           │                        │
 └──────────────────────┴────────┴──────────────────────┴─────────┴────────────────────┴────────────┴───────────┴────────────────────────┘
+```
+
+----
+
+### ST_ReadSHP
+
+#### Signature
+
+```sql
+ST_ReadSHP (col0 VARCHAR, encoding VARCHAR)
 ```
 
 ----

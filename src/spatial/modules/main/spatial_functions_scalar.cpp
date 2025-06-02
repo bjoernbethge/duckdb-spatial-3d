@@ -295,47 +295,106 @@ struct ST_Affine {
 		FunctionBuilder::RegisterMacro(db, "ST_Scale", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
 			    {"geom", "xs", "ys", "zs"}, "ST_Affine(geom, xs, 0, 0, 0, ys, 0, 0, 0, zs, 0, 0, 0)",
-			    "Scales a geometry in X, Y and Z direction. This is a shorthand macro for calling ST_Affine.");
+			    "Scales a geometry in X, Y and Z direction. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Scale a point by factor 2 in X and 3 in Y
+					SELECT ST_Scale(ST_Point(1, 1), 2, 3);
+					----
+					POINT (2 3)
+
+					-- Scale a 3D point
+					SELECT ST_Scale(
+						ST_GeomFromText('POINT Z(1 2 3)'),
+						2, 2, 2
+					);
+					----
+					POINT Z (2 4 6)
+				)"
+			);
 			builder.AddDefinition(
 			    {"geom", "xs", "ys"}, "ST_Affine(geom, xs, 0, 0, 0, ys, 0, 0, 0, 1, 0, 0, 0)",
-			    "Scales a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine.");
+			    "Scales a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine."
+			);
 		});
 
 		FunctionBuilder::RegisterMacro(db, "ST_Translate", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
 			    {"geom", "dx", "dy", "dz"}, "ST_Affine(geom, 1, 0, dx, 0, 1, dy, 0, 0, 1, dz, 0, 0)",
-			    "Translates a geometry in X, Y and Z direction. This is a shorthand macro for calling ST_Affine.");
+			    "Translates a geometry in X, Y and Z direction. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Translate a point by (2, 3)
+					SELECT ST_Translate(ST_Point(1, 1), 2, 3);
+					----
+					POINT (3 4)
+
+					-- Translate a linestring
+					SELECT ST_Translate(
+						ST_GeomFromText('LINESTRING(0 0, 1 1)'),
+						5, -2
+					);
+					----
+					LINESTRING (5 -2, 6 -1)
+				)"
+			);
 			builder.AddDefinition(
 			    {"geom", "dx", "dy"}, "ST_Affine(geom, 1, 0, dx, 0, 1, dy, 0, 0, 1, 0, 0, 0)",
-			    "Translates a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine.");
+			    "Translates a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine."
+			);
 		});
 
 		FunctionBuilder::RegisterMacro(db, "ST_TransScale", [](MacroFunctionBuilder &builder) {
-			builder.AddDefinition({"geom", "dx", "dy", "xs", "ys"},
-			                      "ST_Affine(geom, xs, 0, 0, 0, ys, 0, 0, 0, 1, dx * xs, dy * ys, 0)",
-			                      "Translates and then scales a geometry in X and Y direction. This is a shorthand "
-			                      "macro for calling ST_Affine.");
+			builder.AddDefinition(
+				{"geom", "dx", "dy", "xs", "ys"},
+				"ST_Affine(geom, xs, 0, 0, 0, ys, 0, 0, 0, 1, dx * xs, dy * ys, 0)",
+				"Translates and then scales a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Translate by (1, 2) then scale by (2, 3)
+					SELECT ST_TransScale(ST_Point(1, 1), 1, 2, 2, 3);
+					----
+					POINT (4 9)
+				)"
+			);
 		});
 
 		FunctionBuilder::RegisterMacro(db, "ST_RotateX", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
 			    {"geom", "radians"},
 			    "ST_Affine(geom, 1, 0, 0, 0, COS(radians), -SIN(radians), 0, SIN(radians), COS(radians), 0, 0, 0)",
-			    "Rotates a geometry around the X axis. This is a shorthand macro for calling ST_Affine.");
+			    "Rotates a geometry around the X axis. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Rotate a 3D point 90 degrees (π/2 radians) around the X-axis
+					SELECT ST_RotateX(ST_GeomFromText('POINT Z(0 1 0)'), pi()/2);
+					----
+					POINT Z (0 0 1)
+				)");
 		});
 
 		FunctionBuilder::RegisterMacro(db, "ST_RotateY", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
 			    {"geom", "radians"},
 			    "ST_Affine(geom, COS(radians), 0, SIN(radians), 0, 1, 0, -SIN(radians), 0, COS(radians), 0, 0, 0)",
-			    "Rotates a geometry around the Y axis. This is a shorthand macro for calling ST_Affine.");
+			    "Rotates a geometry around the Y axis. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Rotate a 3D point 90 degrees (π/2 radians) around the Y-axis
+					SELECT ST_RotateY(ST_GeomFromText('POINT Z(1 0 0)'), pi()/2);
+					----
+					POINT Z (0 0 -1)
+				)"
+			);
 		});
 
 		FunctionBuilder::RegisterMacro(db, "ST_RotateZ", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
 			    {"geom", "radians"},
 			    "ST_Affine(geom, COS(radians), -SIN(radians), 0, SIN(radians), COS(radians), 0, 0, 0, 1, 0, 0, 0)",
-			    "Rotates a geometry around the Z axis. This is a shorthand macro for calling ST_Affine.");
+			    "Rotates a geometry around the Z axis. This is a shorthand macro for calling ST_Affine.",
+				R"(
+					-- Rotate a point 90 degrees (π/2 radians) around the Z-axis
+					SELECT ST_RotateZ(ST_Point(1, 0), pi()/2);
+					----
+					POINT (0 1)
+				)"
+			);
 		});
 
 		// Alias for ST_RotateZ

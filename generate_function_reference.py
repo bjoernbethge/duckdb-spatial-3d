@@ -3,6 +3,9 @@ import json
 
 # We just take the first non-empty description and example for now
 get_spatial_functions_sql = """
+INSTALL json;
+LOAD json;
+
 SELECT
     json({ 
         name: function_name,
@@ -28,6 +31,11 @@ FROM (
     WHERE function_type = '$FUNCTION_TYPE$'
     GROUP BY function_name, function_type
     HAVING func_tags['ext'] = 'spatial'
+        -- TODO: macros cannot have tags
+        OR (
+            func_tags['ext'] IS NULL
+            AND function_name LIKE 'ST_%'
+        )
     ORDER BY function_name
 );
 """
@@ -60,6 +68,7 @@ def main():
         aggregate_functions = get_functions('aggregate')
         scalar_functions = get_functions('scalar')
         table_functions = get_functions('table')
+        macro_functions = get_functions('macro')
 
         # Write function index
         f.write("## Function Index \n")
@@ -69,15 +78,21 @@ def main():
         f.write("**[Aggregate Functions](#aggregate-functions)**\n\n")
         write_table_of_contents(f, aggregate_functions)
         f.write("\n")
+        f.write("**[Macro Functions](#Macro-functions)**\n\n")
+        write_table_of_contents(f, macro_functions)
+        f.write("\n")
         f.write("**[Table Functions](#table-functions)**\n\n")
         write_table_of_contents(f, table_functions)
         f.write("\n")
         f.write("----\n\n")
 
         # Write basic functions
-        for func_set in [('Scalar Functions', scalar_functions), ('Aggregate Functions', aggregate_functions)]:
+        for func_set in [
+            ("Scalar Functions", scalar_functions),
+            ("Aggregate Functions", aggregate_functions),
+            ("Macro Functions", macro_functions),
+        ]:
             f.write(f"## {func_set[0]}\n\n")
-            set_name = func_set[0]
             for function in func_set[1]:
                 f.write(f"### {function['name']}\n\n\n")
                 #summary = function['description'].split('\n')[0]
