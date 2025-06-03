@@ -248,7 +248,7 @@ struct PointCasts {
 		GenericExecutor::ExecuteUnary<POINT_TYPE, GEOMETRY_TYPE>(source, result, count, [&](const POINT_TYPE &point) {
 			const double buffer[3] = {point.a_val, point.b_val, point.c_val};
 			sgl::geometry geom(sgl::geometry_type::POINT, true, false);
-			geom.set_vertex_data(reinterpret_cast<const uint8_t *>(buffer), 1);
+			geom.set_vertex_array(buffer, 1);
 
 			return lstate.Serialize(result, geom);
 		});
@@ -303,7 +303,7 @@ struct PointCasts {
 				throw ConversionException("Cannot cast empty point GEOMETRY to POINT_3D");
 			}
 			const auto vertex = geom.get_vertex_xyzm(0);
-			return POINT_TYPE {vertex.x, vertex.y, vertex.zm};
+			return POINT_TYPE {vertex.x, vertex.y, vertex.z};
 		});
 
 		return true;
@@ -434,7 +434,7 @@ struct LinestringCasts {
 			}
 
 			sgl::geometry geom(sgl::geometry_type::LINESTRING, true, false);
-			geom.set_vertex_data(vertex_data_mem, line.length);
+			geom.set_vertex_array(vertex_data_mem, line.length);
 
 			return lstate.Serialize(result, geom);
 		});
@@ -499,7 +499,7 @@ struct LinestringCasts {
 				throw ConversionException("Cannot cast non-linestring GEOMETRY to LINESTRING_3D");
 			}
 
-			const auto line_size = line.get_count();
+			const auto line_size = line.get_vertex_count();
 
 			const auto entry = list_entry_t(total_coords, line_size);
 			total_coords += line_size;
@@ -517,7 +517,7 @@ struct LinestringCasts {
 				const auto vertex = line.get_vertex_xyzm(i);
 				x_data[entry.offset + i] = vertex.x;
 				y_data[entry.offset + i] = vertex.y;
-				z_data[entry.offset + i] = vertex.zm;
+				z_data[entry.offset + i] = vertex.z;
 			}
 			return entry;
 		});
@@ -639,7 +639,7 @@ struct PolygonCasts {
 
 				// Allocate part
 				const auto ring_mem = arena.AllocateAligned(sizeof(sgl::geometry));
-				const auto ring_ptr = new (ring_mem) sgl::geometry(sgl::geometry_type::LINESTRING);
+				const auto ring_ptr = new (ring_mem) sgl::geometry(sgl::geometry_type::LINESTRING, true, false);
 
 				// Allocate data
 				const auto ring_data_mem = arena.AllocateAligned(sizeof(double) * 3 * ring_entry.length);
@@ -651,7 +651,7 @@ struct PolygonCasts {
 					ring_data_ptr[j * 3 + 2] = z_data[ring_entry.offset + j];
 				}
 
-				ring_ptr->set_vertex_data(ring_data_mem, ring_entry.length);
+				ring_ptr->set_vertex_array(ring_data_mem, ring_entry.length);
 
 				// Append part
 				geom.append_part(ring_ptr);
@@ -730,7 +730,6 @@ struct PolygonCasts {
 		return true;
 	}
 
-
 	//------------------------------------------------------------------------------------------------------------------
 	// GEOMETRY -> POLYGON_3D
 	//------------------------------------------------------------------------------------------------------------------
@@ -750,7 +749,7 @@ struct PolygonCasts {
 				throw ConversionException("Cannot cast non-polygon GEOMETRY to POLYGON_3D");
 			}
 
-			const auto poly_size = poly.get_count();
+			const auto poly_size = poly.get_vertex_count();
 			const auto poly_entry = list_entry_t(total_rings, poly_size);
 
 			ListVector::Reserve(result, total_rings + poly_size);
@@ -764,7 +763,7 @@ struct PolygonCasts {
 					D_ASSERT(ring_idx < poly_size);
 					head = head->get_next();
 
-					const auto ring_size = head->get_count();
+					const auto ring_size = head->get_vertex_count();
 					const auto ring_entry = list_entry_t(total_coords, ring_size);
 
 					ListVector::Reserve(ring_vec, total_coords + ring_size);
@@ -782,7 +781,7 @@ struct PolygonCasts {
 						const auto vertext = head->get_vertex_xyzm(j);
 						x_data[ring_entry.offset + j] = vertext.x;
 						y_data[ring_entry.offset + j] = vertext.y;
-						z_data[ring_entry.offset + j] = vertext.zm;
+						z_data[ring_entry.offset + j] = vertext.z;
 					}
 					total_coords += ring_size;
 
@@ -1008,7 +1007,6 @@ void CoreVectorOperations::LineString3DToVarchar(Vector &source, Vector &result,
 		return StringVector::AddString(result, result_str);
 	});
 }
-
 
 //------------------------------------------------------------------------------
 // POLYGON_2D -> VARCHAR
