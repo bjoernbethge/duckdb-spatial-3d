@@ -330,9 +330,9 @@ private:
 
 PhysicalSpatialJoin::PhysicalSpatialJoin(LogicalOperator &op, PhysicalOperator &left, PhysicalOperator &right,
                                          unique_ptr<Expression> condition_p, JoinType join_type,
-                                         idx_t estimated_cardinality)
+                                         idx_t estimated_cardinality, bool has_const_distance, double const_distance)
     : PhysicalJoin(op, PhysicalOperatorType::EXTENSION, join_type, estimated_cardinality),
-      condition(std::move(condition_p)) {
+      condition(std::move(condition_p)), has_const_distance(has_const_distance), const_distance(const_distance) {
 
 	children.emplace_back(left);
 	children.emplace_back(right);
@@ -634,6 +634,15 @@ SinkFinalizeType PhysicalSpatialJoin::Finalize(Pipeline &pipeline, Event &event,
 			if (!geom.TryGetCachedBounds(bbox)) {
 				// Skip empty geometries
 				continue;
+			}
+
+			if (has_const_distance) {
+				// If this is a ST_DWithin join, we need to expand the bounding box by the constant distance
+				const auto f_dist = MathUtil::DoubleToFloatUp(const_distance);
+				bbox.min.x -= f_dist;
+				bbox.min.y -= f_dist;
+				bbox.max.x += f_dist;
+				bbox.max.y += f_dist;
 			}
 
 			// Push the bounding box into the R-Tree

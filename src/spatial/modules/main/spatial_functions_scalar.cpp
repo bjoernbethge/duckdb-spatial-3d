@@ -16,6 +16,8 @@
 #include "duckdb/planner/expression/bound_function_expression.hpp"
 #include "duckdb/common/vector_operations/septenary_executor.hpp"
 
+#include "spatial/util/distance_extract.hpp"
+
 // Extra
 #include "yyjson.h"
 
@@ -8561,6 +8563,18 @@ struct ST_MMin : VertexAggFunctionBase<ST_MMin, VertexMinAggOp> {
 };
 
 } // namespace
+
+// Helper to access the constant distance from the bind data
+bool ST_DWithinHelper::TryGetConstDistance(const unique_ptr<FunctionData> &bind_data, double &result) {
+	if (bind_data) {
+		const auto &data = bind_data->Cast<ST_DistanceWithin::BindData>();
+		if (data.is_constant) {
+			result = data.distance;
+			return true;
+		}
+	}
+	return false;
+}
 
 //######################################################################################################################
 // Register
