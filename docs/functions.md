@@ -5,6 +5,7 @@
 
 | Function | Summary |
 | --- | --- |
+| [`&&`](#&&) | Returns true if the lists have any element in common. NULLs are ignored. |
 | [`DuckDB_PROJ_Compiled_Version`](#duckdb_proj_compiled_version) | Returns a text description of the PROJ library version that that this instance of DuckDB was compiled against. |
 | [`DuckDB_Proj_Version`](#duckdb_proj_version) | Returns a text description of the PROJ library version that is being used by this instance of DuckDB. |
 | [`ST_Affine`](#st_affine) | Applies an affine transformation to a geometry. |
@@ -81,6 +82,7 @@
 | [`ST_M`](#st_m) | Returns the M coordinate of a point geometry |
 | [`ST_MMax`](#st_mmax) | Returns the maximum M coordinate of a geometry |
 | [`ST_MMin`](#st_mmin) | Returns the minimum M coordinate of a geometry |
+| [`ST_MakeBox2D`](#st_makebox2d) | Create a BOX2D from two POINT geometries |
 | [`ST_MakeEnvelope`](#st_makeenvelope) | Create a rectangular polygon from min/max coordinates |
 | [`ST_MakeLine`](#st_makeline) | Create a LINESTRING from a list of POINT geometries |
 | [`ST_MakePolygon`](#st_makepolygon) | Create a POLYGON from a LINESTRING shell |
@@ -117,6 +119,7 @@
 | [`ST_Simplify`](#st_simplify) | Returns a simplified version of the geometry |
 | [`ST_SimplifyPreserveTopology`](#st_simplifypreservetopology) | Returns a simplified version of the geometry that preserves topology |
 | [`ST_StartPoint`](#st_startpoint) | Returns the start point of a LINESTRING. |
+| [`ST_TileEnvelope`](#st_tileenvelope) | The `ST_TileEnvelope` scalar function generates tile envelope rectangular polygons from specified zoom level and tile indices. |
 | [`ST_Touches`](#st_touches) | Returns true if the geometries touch |
 | [`ST_Transform`](#st_transform) | Transforms a geometry between two coordinate systems |
 | [`ST_Union`](#st_union) | Returns the union of two geometries |
@@ -172,6 +175,28 @@
 ----
 
 ## Scalar Functions
+
+### &&
+
+
+#### Signatures
+
+```sql
+BOOLEAN && (l1 ANY[],  l2 ANY[])
+BOOLEAN && (box BOX_2D, geom GEOMETRY)
+```
+
+#### Description
+
+Returns true if the lists have any element in common. NULLs are ignored.
+
+#### Example
+
+```sql
+list_has_any([1, 2, 3], [2, 3, 4])
+```
+
+----
 
 ### DuckDB_PROJ_Compiled_Version
 
@@ -1789,6 +1814,29 @@ SELECT ST_MMin(ST_Point(1, 2, 3, 4))
 
 ----
 
+### ST_MakeBox2D
+
+
+#### Signature
+
+```sql
+BOX_2D ST_MakeBox2D (point1 GEOMETRY, point2 GEOMETRY)
+```
+
+#### Description
+
+Create a BOX2D from two POINT geometries
+
+#### Example
+
+```sql
+SELECT ST_MakeBox2D(ST_Point(0, 0), ST_Point(1, 1));
+----
+BOX(0 0, 1 1)
+```
+
+----
+
 ### ST_MakeEnvelope
 
 
@@ -2449,6 +2497,44 @@ POINT_2D ST_StartPoint (line LINESTRING_2D)
 #### Description
 
 Returns the start point of a LINESTRING.
+
+----
+
+### ST_TileEnvelope
+
+
+#### Signature
+
+```sql
+GEOMETRY ST_TileEnvelope (tile_zoom INTEGER, tile_x INTEGER, tile_y INTEGER)
+```
+
+#### Description
+
+The `ST_TileEnvelope` scalar function generates tile envelope rectangular polygons from specified zoom level and tile indices.
+
+This is used in MVT generation to select the features corresponding to the tile extent. The envelope is in the Web Mercator
+coordinate reference system (EPSG:3857). The tile pyramid starts at zoom level 0, corresponding to a single tile for the
+world. Each zoom level doubles the number of tiles in each direction, such that zoom level 1 is 2 tiles wide by 2 tiles high,
+zoom level 2 is 4 tiles wide by 4 tiles high, and so on. Tile indices start at `[x=0, y=0]` at the top left, and increase
+down and right. For example, at zoom level 2, the top right tile is `[x=3, y=0]`, the bottom left tile is `[x=0, y=3]`, and
+the bottom right is `[x=3, y=3]`.
+
+```sql
+SELECT ST_TileEnvelope(2, 3, 1);
+```
+
+#### Example
+
+```sql
+SELECT ST_TileEnvelope(2, 3, 1);
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                         st_tileenvelope(2, 3, 1)                                          │
+│                                                 geometry                                                  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ POLYGON ((1.00188E+07 0, 1.00188E+07 1.00188E+07, 2.00375E+07 1.00188E+07, 2.00375E+07 0, 1.00188E+07 0)) │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ----
 
