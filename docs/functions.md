@@ -117,6 +117,7 @@
 | [`ST_Simplify`](#st_simplify) | Returns a simplified version of the geometry |
 | [`ST_SimplifyPreserveTopology`](#st_simplifypreservetopology) | Returns a simplified version of the geometry that preserves topology |
 | [`ST_StartPoint`](#st_startpoint) | Returns the start point of a LINESTRING. |
+| [`ST_TileEnvelope`](#st_tileenvelope) | The `ST_TileEnvelope` scalar function generates tile envelope rectangular polygons from specified zoom level and tile indices. |
 | [`ST_Touches`](#st_touches) | Returns true if the geometries touch |
 | [`ST_Transform`](#st_transform) | Transforms a geometry between two coordinate systems |
 | [`ST_Union`](#st_union) | Returns the union of two geometries |
@@ -144,6 +145,7 @@
 | [`ST_Envelope_Agg`](#st_envelope_agg) | Alias for [ST_Extent_Agg](#st_extent_agg). |
 | [`ST_Extent_Agg`](#st_extent_agg) | Computes the minimal-bounding-box polygon containing the set of input geometries |
 | [`ST_Intersection_Agg`](#st_intersection_agg) | Computes the intersection of a set of geometries |
+| [`ST_MemUnion_Agg`](#st_memunion_agg) | Computes the union of a set of input geometries. |
 | [`ST_Union_Agg`](#st_union_agg) | Computes the union of a set of input geometries |
 
 **[Macro Functions](#Macro-functions)**
@@ -2452,6 +2454,44 @@ Returns the start point of a LINESTRING.
 
 ----
 
+### ST_TileEnvelope
+
+
+#### Signature
+
+```sql
+GEOMETRY ST_TileEnvelope (tile_zoom INTEGER, tile_x INTEGER, tile_y INTEGER)
+```
+
+#### Description
+
+The `ST_TileEnvelope` scalar function generates tile envelope rectangular polygons from specified zoom level and tile indices.
+
+This is used in MVT generation to select the features corresponding to the tile extent. The envelope is in the Web Mercator
+coordinate reference system (EPSG:3857). The tile pyramid starts at zoom level 0, corresponding to a single tile for the
+world. Each zoom level doubles the number of tiles in each direction, such that zoom level 1 is 2 tiles wide by 2 tiles high,
+zoom level 2 is 4 tiles wide by 4 tiles high, and so on. Tile indices start at `[x=0, y=0]` at the top left, and increase
+down and right. For example, at zoom level 2, the top right tile is `[x=3, y=0]`, the bottom left tile is `[x=0, y=3]`, and
+the bottom right is `[x=3, y=3]`.
+
+```sql
+SELECT ST_TileEnvelope(2, 3, 1);
+```
+
+#### Example
+
+```sql
+SELECT ST_TileEnvelope(2, 3, 1);
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                         st_tileenvelope(2, 3, 1)                                          │
+│                                                 geometry                                                  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ POLYGON ((1.00188E+07 0, 1.00188E+07 1.00188E+07, 2.00375E+07 1.00188E+07, 2.00375E+07 0, 1.00188E+07 0)) │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+----
+
 ### ST_Touches
 
 
@@ -2973,6 +3013,22 @@ GEOMETRY ST_Intersection_Agg (col0 GEOMETRY)
 #### Description
 
 Computes the intersection of a set of geometries
+
+----
+
+### ST_MemUnion_Agg
+
+
+#### Signature
+
+```sql
+GEOMETRY ST_MemUnion_Agg (col0 GEOMETRY)
+```
+
+#### Description
+
+Computes the union of a set of input geometries.
+                "Slower, but might be more memory efficient than ST_UnionAgg as each geometry is merged into the union individually rather than all at once.
 
 ----
 
