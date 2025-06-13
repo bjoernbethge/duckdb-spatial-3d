@@ -2209,8 +2209,6 @@ struct ST_Union_Agg {
 
 		const auto state_ptr = UnifiedVectorFormat::GetData<State *>(state_format);
 
-		auto &mask = FlatVector::Validity(result);
-
 		for (idx_t raw_idx = 0; raw_idx < count; raw_idx++) {
 			auto &state = *state_ptr[state_format.sel->get_index(raw_idx)];
 			const auto out_idx = raw_idx + offset;
