@@ -3282,7 +3282,7 @@ struct Op_IntersectApprox {
 			// Get the actual indices for box and geometry
 			const auto box_idx = box_vdata.sel->get_index(i);
 			const auto geom_idx = input_geom_vdata.sel->get_index(i);
-			
+
 			// Check validity of both inputs
 			if (!box_vdata.validity.RowIsValid(box_idx) || !input_geom_vdata.validity.RowIsValid(geom_idx)) {
 				FlatVector::SetNull(result, i, true);
