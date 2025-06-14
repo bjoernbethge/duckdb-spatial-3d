@@ -3256,32 +3256,68 @@ struct Op_IntersectApprox {
 
 		auto result_data = FlatVector::GetData<bool>(result);
 
-		const auto &bbox_vec = StructVector::GetEntries(box);
-		const auto box_min_x_data = FlatVector::GetData<double>(*bbox_vec[0]);
-		const auto box_min_y_data = FlatVector::GetData<double>(*bbox_vec[1]);
-		const auto box_max_x_data = FlatVector::GetData<double>(*bbox_vec[2]);
-		const auto box_max_y_data = FlatVector::GetData<double>(*bbox_vec[3]);
+		// Convert box to unified format
+		UnifiedVectorFormat box_vdata;
+		box.ToUnifiedFormat(count, box_vdata);
 
+		// Get the struct entries and convert them to unified format
+		const auto &bbox_vec = StructVector::GetEntries(box);
+		UnifiedVectorFormat box_min_x_vdata, box_min_y_vdata, box_max_x_vdata, box_max_y_vdata;
+		bbox_vec[0]->ToUnifiedFormat(count, box_min_x_vdata);
+		bbox_vec[1]->ToUnifiedFormat(count, box_min_y_vdata);
+		bbox_vec[2]->ToUnifiedFormat(count, box_max_x_vdata);
+		bbox_vec[3]->ToUnifiedFormat(count, box_max_y_vdata);
+
+		const auto box_min_x_data = UnifiedVectorFormat::GetData<double>(box_min_x_vdata);
+		const auto box_min_y_data = UnifiedVectorFormat::GetData<double>(box_min_y_vdata);
+		const auto box_max_x_data = UnifiedVectorFormat::GetData<double>(box_max_x_vdata);
+		const auto box_max_y_data = UnifiedVectorFormat::GetData<double>(box_max_y_vdata);
+
+		// Convert geometry to unified format
 		UnifiedVectorFormat input_geom_vdata;
 		geom.ToUnifiedFormat(count, input_geom_vdata);
 		const auto input_geom = UnifiedVectorFormat::GetData<geometry_t>(input_geom_vdata);
 
 		for (idx_t i = 0; i < count; i++) {
-			const auto row_idx = input_geom_vdata.sel->get_index(i);
-			if (input_geom_vdata.validity.RowIsValid(row_idx)) {
-				auto &geom = input_geom[row_idx];
+			// Get the actual indices for box and geometry
+			const auto box_idx = box_vdata.sel->get_index(i);
+			const auto geom_idx = input_geom_vdata.sel->get_index(i);
+			
+			// Check validity of both inputs
+			if (!box_vdata.validity.RowIsValid(box_idx) || !input_geom_vdata.validity.RowIsValid(geom_idx)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
 
-				// Try to get the cached bounding box from the blob
-				Box2D<float> geom_bbox;
-				if (geom.TryGetCachedBounds(geom_bbox)) {
-					result_data[i] = (box_min_x_data[i] <= geom_bbox.max.x && geom_bbox.min.x <= box_max_x_data[i]) &&
-					                 (box_min_y_data[i] <= geom_bbox.max.y && geom_bbox.min.y <= box_max_y_data[i]);
-				} else {
-					// No bounding box, return null
-					FlatVector::SetNull(result, i, true);
-				}
+			// Get box coordinate indices
+			const auto box_min_x_idx = box_min_x_vdata.sel->get_index(i);
+			const auto box_min_y_idx = box_min_y_vdata.sel->get_index(i);
+			const auto box_max_x_idx = box_max_x_vdata.sel->get_index(i);
+			const auto box_max_y_idx = box_max_y_vdata.sel->get_index(i);
+
+			// Check validity of box coordinates
+			if (!box_min_x_vdata.validity.RowIsValid(box_min_x_idx) ||
+			    !box_min_y_vdata.validity.RowIsValid(box_min_y_idx) ||
+			    !box_max_x_vdata.validity.RowIsValid(box_max_x_idx) ||
+			    !box_max_y_vdata.validity.RowIsValid(box_max_y_idx)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
+
+			auto &geom_blob = input_geom[geom_idx];
+
+			// Try to get the cached bounding box from the blob
+			Box2D<float> geom_bbox;
+			if (geom_blob.TryGetCachedBounds(geom_bbox)) {
+				const auto box_min_x = box_min_x_data[box_min_x_idx];
+				const auto box_min_y = box_min_y_data[box_min_y_idx];
+				const auto box_max_x = box_max_x_data[box_max_x_idx];
+				const auto box_max_y = box_max_y_data[box_max_y_idx];
+
+				result_data[i] = (box_min_x <= geom_bbox.max.x && geom_bbox.min.x <= box_max_x) &&
+				                 (box_min_y <= geom_bbox.max.y && geom_bbox.min.y <= box_max_y);
 			} else {
-				// Null input, return null
+				// No bounding box, return null
 				FlatVector::SetNull(result, i, true);
 			}
 		}
