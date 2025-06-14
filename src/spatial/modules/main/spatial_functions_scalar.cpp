@@ -3306,6 +3306,9 @@ struct Op_IntersectApprox {
 
 			func.SetDescription(R"(
 				Returns true if the bounding boxes intersects.
+				
+				Note that, this operation is not very accurate; `&&` compares the cached bbox of the geometry using float precision.
+				If you prefer accuracy, please use some other function like `ST_Intersects()`.
 			)");
 
 			func.SetExample(R"(
