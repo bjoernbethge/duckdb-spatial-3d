@@ -5,7 +5,7 @@
 
 | Function | Summary |
 | --- | --- |
-| [`&&`](#&&) | Returns true if the lists have any element in common. NULLs are ignored. |
+| [`&&`](#&&) | Returns true if the bounding boxes intersects. |
 | [`DuckDB_PROJ_Compiled_Version`](#duckdb_proj_compiled_version) | Returns a text description of the PROJ library version that that this instance of DuckDB was compiled against. |
 | [`DuckDB_Proj_Version`](#duckdb_proj_version) | Returns a text description of the PROJ library version that is being used by this instance of DuckDB. |
 | [`ST_Affine`](#st_affine) | Applies an affine transformation to a geometry. |
@@ -179,21 +179,29 @@
 ### &&
 
 
-#### Signatures
+#### Signature
 
 ```sql
-BOOLEAN && (l1 ANY[],  l2 ANY[])
 BOOLEAN && (box BOX_2D, geom GEOMETRY)
 ```
 
 #### Description
 
-Returns true if the lists have any element in common. NULLs are ignored.
+Returns true if the bounding boxes intersects.
+
+Note that, this operation is not very accurate; `&&` compares the cached bbox of the geometry using float precision.
+If you prefer accuracy, please use some other function like `ST_Intersects()`.
 
 #### Example
 
 ```sql
-list_has_any([1, 2, 3], [2, 3, 4])
+SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(1, 1);
+----
+true
+
+SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(5, 5);
+----
+false
 ```
 
 ----
