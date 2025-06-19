@@ -20,9 +20,23 @@
       "platform": "!wasm32 & !ios & !android",
       "features": ["openssl"],
       "default-features": false
+    },
+    {
+      "name": "gdal",
+      "version>=": "3.8.5",
+      "features": [
+        {
+          "name": "network",
+          "platform": "!wasm32 & !ios & !android"
+        },
+        "geos"
+      ]
     }
   ],
   "vcpkg-configuration": {
+    "overlay-ports": [
+      "./vcpkg_ports"
+    ],
     "registries": [
       {
         "kind": "git",
