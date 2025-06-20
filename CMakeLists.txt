@@ -56,6 +56,11 @@ if(SPATIAL_USE_GEOS)
   add_definitions(-DSPATIAL_USE_GEOS=1)
 endif()
 
+if(EMSCRIPTEN)
+  message(STATUS "Building for Emscripten, disabling network functionality")
+  set(SPATIAL_USE_NETWORK OFF)
+endif()
+
 if(SPATIAL_USE_NETWORK)
   message(STATUS "Building with network functionality")
   message(STATUS "OpenSSL root dir hint: '$ENV{OPENSSL_ROOT_DIR}'")
