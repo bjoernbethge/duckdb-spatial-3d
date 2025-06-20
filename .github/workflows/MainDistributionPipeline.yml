@@ -30,6 +30,7 @@ jobs:
       duckdb_version: v1.3.0
       extension_name: spatial
       ci_tools_version: main
+      override_ci_tools_repository: 'maxxen/extension-ci-tools'
       vcpkg_commit: ce613c41372b23b1f51333815feb3edd87ef8a8b
 
   duckdb-latest-deploy:
@@ -41,4 +42,5 @@ jobs:
       duckdb_version: v1.3.0
       ci_tools_version: main
       extension_name: spatial
+      override_ci_tools_repository: 'maxxen/extension-ci-tools'
       deploy_latest: ${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' }}
