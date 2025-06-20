@@ -147,6 +147,7 @@
 | [`ST_Envelope_Agg`](#st_envelope_agg) | Alias for [ST_Extent_Agg](#st_extent_agg). |
 | [`ST_Extent_Agg`](#st_extent_agg) | Computes the minimal-bounding-box polygon containing the set of input geometries |
 | [`ST_Intersection_Agg`](#st_intersection_agg) | Computes the intersection of a set of geometries |
+| [`ST_MemUnion_Agg`](#st_memunion_agg) | Computes the union of a set of input geometries. |
 | [`ST_Union_Agg`](#st_union_agg) | Computes the union of a set of input geometries |
 
 **[Macro Functions](#Macro-functions)**
@@ -3067,6 +3068,22 @@ GEOMETRY ST_Intersection_Agg (col0 GEOMETRY)
 #### Description
 
 Computes the intersection of a set of geometries
+
+----
+
+### ST_MemUnion_Agg
+
+
+#### Signature
+
+```sql
+GEOMETRY ST_MemUnion_Agg (col0 GEOMETRY)
+```
+
+#### Description
+
+Computes the union of a set of input geometries.
+                "Slower, but might be more memory efficient than ST_UnionAgg as each geometry is merged into the union individually rather than all at once.
 
 ----
 

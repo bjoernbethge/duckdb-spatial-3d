@@ -2529,8 +2529,8 @@ struct ST_Distance {
 			const auto &lhs_blob = ConstantVector::GetData<string_t>(lhs_vec)[0];
 			const auto &rhs_blob = ConstantVector::GetData<string_t>(rhs_vec)[0];
 
-			sgl::geometry lhs_geom;
-			sgl::geometry rhs_geom;
+			sgl::prepared_geometry lhs_geom;
+			sgl::prepared_geometry rhs_geom;
 
 			lstate.Deserialize(lhs_blob, lhs_geom);
 			lstate.Deserialize(rhs_blob, rhs_geom);
@@ -2553,7 +2553,7 @@ struct ST_Distance {
 			lstate.Deserialize(const_blob, const_geom);
 
 			UnaryExecutor::Execute<string_t, double>(probe_vec, result, count, [&](const string_t &probe_blob) {
-				sgl::geometry probe_geom;
+				sgl::prepared_geometry probe_geom;
 				lstate.Deserialize(probe_blob, probe_geom);
 
 				// Calculate the distance
@@ -2567,8 +2567,8 @@ struct ST_Distance {
 			// Both are non-const
 			BinaryExecutor::Execute<string_t, string_t, double>(
 			    args.data[0], args.data[1], result, count, [&](const string_t &blob1, const string_t &blob2) {
-				    sgl::geometry geom1;
-				    sgl::geometry geom2;
+				    sgl::prepared_geometry geom1;
+				    sgl::prepared_geometry geom2;
 
 				    lstate.Deserialize(blob1, geom1);
 				    lstate.Deserialize(blob2, geom2);
@@ -2756,7 +2756,7 @@ struct ST_DistanceWithin {
 				lstate.Deserialize(const_blob, const_geom);
 
 				UnaryExecutor::Execute<string_t, bool>(probe_vec, result, count, [&](const string_t &probe_blob) {
-					sgl::geometry probe_geom;
+					sgl::prepared_geometry probe_geom;
 					lstate.Deserialize(probe_blob, probe_geom);
 
 					// Calculate the distance
@@ -3093,7 +3093,7 @@ struct ST_Extent {
 			const auto wkb_buf = blob.GetDataUnsafe();
 			const auto wkb_len = blob.GetSize();
 
-			sgl::extent_xy bbox = {};
+			sgl::extent_xy bbox = sgl::extent_xy::smallest();
 			size_t vertex_count = 0;
 			if (!reader.try_parse_stats(bbox, vertex_count, wkb_buf, wkb_len)) {
 				const auto error = reader.get_error_message();
@@ -4918,7 +4918,7 @@ struct ST_GeomFromWKB {
 				throw InvalidInputException("ST_Polygon2DFromWKB: WKB is not a POLYGON");
 			}
 
-			const auto ring_count = geom.get_vertex_count();
+			const auto ring_count = geom.get_part_count();
 
 			polygons[i].offset = total_ring_count;
 			polygons[i].length = ring_count;
@@ -5759,7 +5759,7 @@ struct ST_Hilbert {
 			    lstate.Deserialize(blob, geom);
 
 			    // TODO: Dont deserialize, just get the bounds from blob instead.
-			    sgl::extent_xy geom_bounds = {};
+			    sgl::extent_xy geom_bounds = sgl::extent_xy::smallest();
 
 			    if (sgl::ops::get_total_extent_xy(geom, geom_bounds) == 0) {
 				    throw InvalidInputException("ST_Hilbert(geom, bounds) does not support empty geometries");
@@ -5918,7 +5918,7 @@ struct ST_IntersectsExtent {
 			    sgl::geometry lhs_geom;
 			    lstate.Deserialize(lhs_blob, lhs_geom);
 
-			    sgl::extent_xy lhs_ext = {};
+			    sgl::extent_xy lhs_ext = sgl::extent_xy::smallest();
 			    if (sgl::ops::get_total_extent_xy(lhs_geom, lhs_ext) == 0) {
 				    return false;
 			    }
@@ -5926,7 +5926,7 @@ struct ST_IntersectsExtent {
 			    sgl::geometry rhs_geom;
 			    lstate.Deserialize(rhs_blob, rhs_geom);
 
-			    sgl::extent_xy rhs_ext = {};
+			    sgl::extent_xy rhs_ext = sgl::extent_xy::smallest();
 			    if (sgl::ops::get_total_extent_xy(rhs_geom, rhs_ext) == 0) {
 				    return false;
 			    }
@@ -6850,7 +6850,7 @@ struct ST_NGeometries {
 			case sgl::geometry_type::MULTI_LINESTRING:
 			case sgl::geometry_type::MULTI_POLYGON:
 			case sgl::geometry_type::GEOMETRY_COLLECTION:
-				return static_cast<int32_t>(geom.get_vertex_count());
+				return static_cast<int32_t>(geom.get_part_count());
 			default:
 				D_ASSERT(false);
 				return 0;
@@ -6918,7 +6918,7 @@ struct ST_NInteriorRings {
 				    return 0;
 			    }
 
-			    const auto n_rings = static_cast<int32_t>(geom.get_vertex_count());
+			    const auto n_rings = static_cast<int32_t>(geom.get_part_count());
 			    return n_rings == 0 ? 0 : n_rings - 1;
 		    });
 	}
