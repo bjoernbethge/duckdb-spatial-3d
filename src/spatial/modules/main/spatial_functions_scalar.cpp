@@ -3240,6 +3240,130 @@ struct ST_Extent_Approx {
 };
 
 //======================================================================================================================
+// &&
+//======================================================================================================================
+
+struct Op_IntersectApprox {
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Execute
+	//------------------------------------------------------------------------------------------------------------------
+	static void Execute(DataChunk &args, ExpressionState &state, Vector &result) {
+
+		const auto count = args.size();
+		auto &box = args.data[0];
+		auto &geom = args.data[1];
+
+		auto result_data = FlatVector::GetData<bool>(result);
+
+		// Convert box to unified format
+		UnifiedVectorFormat box_vdata;
+		box.ToUnifiedFormat(count, box_vdata);
+
+		// Get the struct entries and convert them to unified format
+		const auto &bbox_vec = StructVector::GetEntries(box);
+		UnifiedVectorFormat box_min_x_vdata, box_min_y_vdata, box_max_x_vdata, box_max_y_vdata;
+		bbox_vec[0]->ToUnifiedFormat(count, box_min_x_vdata);
+		bbox_vec[1]->ToUnifiedFormat(count, box_min_y_vdata);
+		bbox_vec[2]->ToUnifiedFormat(count, box_max_x_vdata);
+		bbox_vec[3]->ToUnifiedFormat(count, box_max_y_vdata);
+
+		const auto box_min_x_data = UnifiedVectorFormat::GetData<double>(box_min_x_vdata);
+		const auto box_min_y_data = UnifiedVectorFormat::GetData<double>(box_min_y_vdata);
+		const auto box_max_x_data = UnifiedVectorFormat::GetData<double>(box_max_x_vdata);
+		const auto box_max_y_data = UnifiedVectorFormat::GetData<double>(box_max_y_vdata);
+
+		// Convert geometry to unified format
+		UnifiedVectorFormat input_geom_vdata;
+		geom.ToUnifiedFormat(count, input_geom_vdata);
+		const auto input_geom = UnifiedVectorFormat::GetData<geometry_t>(input_geom_vdata);
+
+		for (idx_t i = 0; i < count; i++) {
+			// Get the actual indices for box and geometry
+			const auto box_idx = box_vdata.sel->get_index(i);
+			const auto geom_idx = input_geom_vdata.sel->get_index(i);
+
+			// Check validity of both inputs
+			if (!box_vdata.validity.RowIsValid(box_idx) || !input_geom_vdata.validity.RowIsValid(geom_idx)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
+
+			// Get box coordinate indices
+			const auto box_min_x_idx = box_min_x_vdata.sel->get_index(i);
+			const auto box_min_y_idx = box_min_y_vdata.sel->get_index(i);
+			const auto box_max_x_idx = box_max_x_vdata.sel->get_index(i);
+			const auto box_max_y_idx = box_max_y_vdata.sel->get_index(i);
+
+			// Check validity of box coordinates
+			if (!box_min_x_vdata.validity.RowIsValid(box_min_x_idx) ||
+			    !box_min_y_vdata.validity.RowIsValid(box_min_y_idx) ||
+			    !box_max_x_vdata.validity.RowIsValid(box_max_x_idx) ||
+			    !box_max_y_vdata.validity.RowIsValid(box_max_y_idx)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
+
+			auto &geom_blob = input_geom[geom_idx];
+
+			// Try to get the cached bounding box from the blob
+			Box2D<float> geom_bbox;
+			if (geom_blob.TryGetCachedBounds(geom_bbox)) {
+				const auto box_min_x = box_min_x_data[box_min_x_idx];
+				const auto box_min_y = box_min_y_data[box_min_y_idx];
+				const auto box_max_x = box_max_x_data[box_max_x_idx];
+				const auto box_max_y = box_max_y_data[box_max_y_idx];
+
+				result_data[i] = (box_min_x <= geom_bbox.max.x && geom_bbox.min.x <= box_max_x) &&
+				                 (box_min_y <= geom_bbox.max.y && geom_bbox.min.y <= box_max_y);
+			} else {
+				// No bounding box, return null
+				FlatVector::SetNull(result, i, true);
+			}
+		}
+
+		if (box.GetVectorType() == VectorType::CONSTANT_VECTOR) {
+			result.SetVectorType(VectorType::CONSTANT_VECTOR);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Register
+	//------------------------------------------------------------------------------------------------------------------
+	static void Register(DatabaseInstance &db) {
+		FunctionBuilder::RegisterScalar(db, "&&", [](ScalarFunctionBuilder &func) {
+			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
+				variant.AddParameter("box", GeoTypes::BOX_2D());
+				variant.AddParameter("geom", GeoTypes::GEOMETRY());
+				variant.SetReturnType(LogicalType::BOOLEAN);
+
+				variant.SetFunction(Execute);
+			});
+
+			func.SetDescription(R"(
+				Returns true if the bounding boxes intersects.
+				
+				Note that, this operation is not very accurate; `&&` compares the cached bbox of the geometry using float precision.
+				If you prefer accuracy, please use some other function like `ST_Intersects()`.
+			)");
+
+			func.SetExample(R"(
+				SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(1, 1);
+				----
+				true
+				
+				SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(5, 5);
+				----
+				false
+			)");
+
+			func.SetTag("ext", "spatial");
+			func.SetTag("category", "property");
+		});
+	}
+};
+
+//======================================================================================================================
 // ST_ExteriorRing
 //======================================================================================================================
 
@@ -6517,6 +6641,105 @@ struct ST_MakePolygon {
 };
 
 //======================================================================================================================
+// ST_MakeBox2D
+//======================================================================================================================
+
+struct ST_MakeBox2D {
+	//------------------------------------------------------------------------------------------------------------------
+	// Execute (GEOMETRY, GEOMETRY)
+	//------------------------------------------------------------------------------------------------------------------
+	static void ExecuteBinary(DataChunk &args, ExpressionState &state, Vector &result) {
+		auto &lstate = LocalState::ResetAndGet(state);
+
+		const auto &bbox_vec = StructVector::GetEntries(result);
+		const auto min_x_data = FlatVector::GetData<double>(*bbox_vec[0]);
+		const auto min_y_data = FlatVector::GetData<double>(*bbox_vec[1]);
+		const auto max_x_data = FlatVector::GetData<double>(*bbox_vec[2]);
+		const auto max_y_data = FlatVector::GetData<double>(*bbox_vec[3]);
+
+		UnifiedVectorFormat input_vdata1;
+		UnifiedVectorFormat input_vdata2;
+		args.data[0].ToUnifiedFormat(args.size(), input_vdata1);
+		args.data[1].ToUnifiedFormat(args.size(), input_vdata2);
+		const auto input_data1 = UnifiedVectorFormat::GetData<string_t>(input_vdata1);
+		const auto input_data2 = UnifiedVectorFormat::GetData<string_t>(input_vdata2);
+
+		const auto count = args.size();
+
+		for (idx_t out_idx = 0; out_idx < count; out_idx++) {
+			const auto row_idx1 = input_vdata1.sel->get_index(out_idx);
+			const auto row_idx2 = input_vdata2.sel->get_index(out_idx);
+			if (!input_vdata1.validity.RowIsValid(row_idx1) || !input_vdata2.validity.RowIsValid(row_idx2)) {
+				FlatVector::SetNull(result, out_idx, true);
+				continue;
+			}
+
+			const auto &blob1 = input_data1[row_idx1];
+			const auto &blob2 = input_data2[row_idx2];
+			sgl::geometry geom1;
+			sgl::geometry geom2;
+			lstate.Deserialize(blob1, geom1);
+			lstate.Deserialize(blob2, geom2);
+
+			if (geom1.get_type() != sgl::geometry_type::POINT || geom2.get_type() != sgl::geometry_type::POINT) {
+				throw InvalidInputException("ST_MakeBox2D only accepts POINT geometries");
+			}
+
+			if (geom1.is_empty() || geom2.is_empty()) {
+				FlatVector::SetNull(result, out_idx, true);
+				continue;
+			}
+
+			const auto v1 = geom1.get_vertex_xy(0);
+			const auto v2 = geom2.get_vertex_xy(0);
+
+			min_x_data[out_idx] = std::min(v1.x, v2.x);
+			min_y_data[out_idx] = std::min(v1.y, v2.y);
+			max_x_data[out_idx] = std::max(v1.x, v2.x);
+			max_y_data[out_idx] = std::max(v1.y, v2.y);
+		}
+
+		if (args.AllConstant()) {
+			result.SetVectorType(VectorType::CONSTANT_VECTOR);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Documentation
+	//------------------------------------------------------------------------------------------------------------------
+	static constexpr auto DESCRIPTION_BINARY = R"(
+		Create a BOX2D from two POINT geometries
+	)";
+	static constexpr auto EXAMPLE_BINARY = R"(
+		SELECT ST_MakeBox2D(ST_Point(0, 0), ST_Point(1, 1));
+		----
+		BOX(0 0, 1 1)
+	)";
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Register
+	//------------------------------------------------------------------------------------------------------------------
+	static void Register(DatabaseInstance &db) {
+		FunctionBuilder::RegisterScalar(db, "ST_MakeBox2D", [](ScalarFunctionBuilder &func) {
+			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
+				variant.AddParameter("point1", GeoTypes::GEOMETRY());
+				variant.AddParameter("point2", GeoTypes::GEOMETRY());
+				variant.SetReturnType(GeoTypes::BOX_2D());
+
+				variant.SetInit(LocalState::Init);
+				variant.SetFunction(ExecuteBinary);
+
+				variant.SetDescription(DESCRIPTION_BINARY);
+				variant.SetExample(EXAMPLE_BINARY);
+			});
+
+			func.SetTag("ext", "spatial");
+			func.SetTag("category", "construction");
+		});
+	}
+};
+
+//======================================================================================================================
 // ST_Multi
 //======================================================================================================================
 
@@ -8609,6 +8832,7 @@ void RegisterSpatialScalarFunctions(DatabaseInstance &db) {
 	ST_EndPoint::Register(db);
 	ST_Extent::Register(db);
 	ST_Extent_Approx::Register(db);
+	Op_IntersectApprox::Register(db);
 	ST_ExteriorRing::Register(db);
 	ST_FlipCoordinates::Register(db);
 	ST_Force2D::Register(db);
@@ -8636,6 +8860,7 @@ void RegisterSpatialScalarFunctions(DatabaseInstance &db) {
 	ST_MakeEnvelope::Register(db);
 	ST_MakeLine::Register(db);
 	ST_MakePolygon::Register(db);
+	ST_MakeBox2D::Register(db);
 	ST_Multi::Register(db);
 	ST_NGeometries::Register(db);
 	ST_NInteriorRings::Register(db);

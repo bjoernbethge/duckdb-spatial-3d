@@ -29,6 +29,12 @@ FROM (
         any_value(tags) AS func_tags,
     FROM duckdb_functions() as funcs
     WHERE function_type = '$FUNCTION_TYPE$'
+        -- function-specific tweaks
+        AND CASE function_name
+            -- TODO: https://github.com/duckdb/duckdb-spatial/pull/601#discussion_r2144753435
+            WHEN '&&' THEN 'box' IN parameters
+            ELSE true
+        END
     GROUP BY function_name, function_type
     HAVING func_tags['ext'] = 'spatial'
         -- TODO: macros cannot have tags

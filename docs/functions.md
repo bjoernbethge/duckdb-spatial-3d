@@ -5,6 +5,7 @@
 
 | Function | Summary |
 | --- | --- |
+| [`&&`](#&&) | Returns true if the bounding boxes intersects. |
 | [`DuckDB_PROJ_Compiled_Version`](#duckdb_proj_compiled_version) | Returns a text description of the PROJ library version that that this instance of DuckDB was compiled against. |
 | [`DuckDB_Proj_Version`](#duckdb_proj_version) | Returns a text description of the PROJ library version that is being used by this instance of DuckDB. |
 | [`ST_Affine`](#st_affine) | Applies an affine transformation to a geometry. |
@@ -81,6 +82,7 @@
 | [`ST_M`](#st_m) | Returns the M coordinate of a point geometry |
 | [`ST_MMax`](#st_mmax) | Returns the maximum M coordinate of a geometry |
 | [`ST_MMin`](#st_mmin) | Returns the minimum M coordinate of a geometry |
+| [`ST_MakeBox2D`](#st_makebox2d) | Create a BOX2D from two POINT geometries |
 | [`ST_MakeEnvelope`](#st_makeenvelope) | Create a rectangular polygon from min/max coordinates |
 | [`ST_MakeLine`](#st_makeline) | Create a LINESTRING from a list of POINT geometries |
 | [`ST_MakePolygon`](#st_makepolygon) | Create a POLYGON from a LINESTRING shell |
@@ -174,6 +176,36 @@
 ----
 
 ## Scalar Functions
+
+### &&
+
+
+#### Signature
+
+```sql
+BOOLEAN && (box BOX_2D, geom GEOMETRY)
+```
+
+#### Description
+
+Returns true if the bounding boxes intersects.
+
+Note that, this operation is not very accurate; `&&` compares the cached bbox of the geometry using float precision.
+If you prefer accuracy, please use some other function like `ST_Intersects()`.
+
+#### Example
+
+```sql
+SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(1, 1);
+----
+true
+
+SELECT ST_MakeBox2D('POINT (0 0)'::GEOMETRY, 'POINT (2 2)'::GEOMETRY) && ST_POINT(5, 5);
+----
+false
+```
+
+----
 
 ### DuckDB_PROJ_Compiled_Version
 
@@ -1787,6 +1819,29 @@ Returns the minimum M coordinate of a geometry
 
 ```sql
 SELECT ST_MMin(ST_Point(1, 2, 3, 4))
+```
+
+----
+
+### ST_MakeBox2D
+
+
+#### Signature
+
+```sql
+BOX_2D ST_MakeBox2D (point1 GEOMETRY, point2 GEOMETRY)
+```
+
+#### Description
+
+Create a BOX2D from two POINT geometries
+
+#### Example
+
+```sql
+SELECT ST_MakeBox2D(ST_Point(0, 0), ST_Point(1, 1));
+----
+BOX(0 0, 1 1)
 ```
 
 ----
