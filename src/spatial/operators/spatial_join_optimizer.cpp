@@ -210,11 +210,12 @@ static void TryInsertSpatialJoin(OptimizerExtensionInput &input, unique_ptr<Logi
 	}
 }
 
-void SpatialJoinOptimizer::Register(DatabaseInstance &db) {
+void SpatialJoinOptimizer::Register(ExtensionLoader &loader) {
 
 	OptimizerExtension optimizer;
 	optimizer.optimize_function = TryInsertSpatialJoin;
 
+	auto &db = loader.GetDatabaseInstance();
 	db.config.optimizer_extensions.push_back(optimizer);
 }
 

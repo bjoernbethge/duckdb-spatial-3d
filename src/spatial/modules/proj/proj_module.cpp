@@ -8,7 +8,6 @@
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
 #include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
-#include "duckdb/main/extension_util.hpp"
 
 #include "proj.h"
 #include "geodesic.h"
@@ -44,7 +43,7 @@ namespace {
 //######################################################################################################################
 
 struct ProjModule {
-	static void RegisterVFS(DatabaseInstance &db);
+	static void RegisterVFS(ExtensionLoader &loader);
 	static PJ_CONTEXT *GetThreadProjContext();
 };
 
@@ -74,7 +73,7 @@ PJ_CONTEXT *ProjModule::GetThreadProjContext() {
 }
 
 // IMPORTANT: Make sure this module is loaded before any other modules that use proj (like GDAL)
-void ProjModule::RegisterVFS(DatabaseInstance &db) {
+void ProjModule::RegisterVFS(ExtensionLoader &loader) {
 
 	// Initialization lock around global proj state
 	// Make sure this is only loaded once per process
@@ -409,8 +408,8 @@ struct ST_Transform {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_Transform", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Transform", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([&](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("box", GeoTypes::BOX_2D());
 				variant.AddParameter("source_crs", LogicalType::VARCHAR);
@@ -682,8 +681,8 @@ struct ST_Area_Spheroid {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_Area_Spheroid", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Area_Spheroid", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("geom", GeoTypes::GEOMETRY());
 				variant.SetReturnType(LogicalType::DOUBLE);
@@ -838,8 +837,8 @@ struct ST_Perimeter_Spheroid {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_Perimeter_Spheroid", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Perimeter_Spheroid", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("geom", GeoTypes::GEOMETRY());
 				variant.SetReturnType(LogicalType::DOUBLE);
@@ -972,8 +971,8 @@ struct ST_Length_Spheroid {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_Length_Spheroid", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Length_Spheroid", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("geom", GeoTypes::GEOMETRY());
 				variant.SetReturnType(LogicalType::DOUBLE);
@@ -1037,8 +1036,8 @@ struct ST_Distance_Spheroid {
 	-- Roughly 5863km!
 	)";
 
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_Distance_Spheroid", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Distance_Spheroid", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("p1", GeoTypes::POINT_2D());
 				variant.AddParameter("p2", GeoTypes::POINT_2D());
@@ -1089,8 +1088,8 @@ struct ST_DWithin_Spheroid {
 	// TODO: add example
 	static constexpr auto EXAMPLE = "";
 
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_DWithin_Spheroid", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_DWithin_Spheroid", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("p1", GeoTypes::POINT_2D());
 				variant.AddParameter("p2", GeoTypes::POINT_2D());
@@ -1134,8 +1133,8 @@ struct DuckDB_Proj_Version {
 	└───────────────────────┘
 	)";
 
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "DuckDB_Proj_Version", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "DuckDB_Proj_Version", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.SetReturnType(LogicalType::VARCHAR);
 
@@ -1174,8 +1173,8 @@ struct DuckDB_Proj_Compiled_Version {
 	└────────────────────────────────┘
 	)";
 
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "DuckDB_PROJ_Compiled_Version", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "DuckDB_PROJ_Compiled_Version", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.SetReturnType(LogicalType::VARCHAR);
 
@@ -1196,24 +1195,24 @@ struct DuckDB_Proj_Compiled_Version {
 //######################################################################################################################
 // Module Registration
 //######################################################################################################################
-void RegisterProjModule(DatabaseInstance &db) {
+void RegisterProjModule(ExtensionLoader &loader) {
 
 	// Register the VFS for the proj.db database
-	ProjModule::RegisterVFS(db);
+	ProjModule::RegisterVFS(loader);
 
 	// Coordinate Transform Function
-	ST_Transform::Register(db);
+	ST_Transform::Register(loader);
 
 	// Geodesic Functions
-	ST_Area_Spheroid::Register(db);
-	ST_Perimeter_Spheroid::Register(db);
-	ST_Length_Spheroid::Register(db);
-	ST_Distance_Spheroid::Register(db);
-	ST_DWithin_Spheroid::Register(db);
+	ST_Area_Spheroid::Register(loader);
+	ST_Perimeter_Spheroid::Register(loader);
+	ST_Length_Spheroid::Register(loader);
+	ST_Distance_Spheroid::Register(loader);
+	ST_DWithin_Spheroid::Register(loader);
 
 	// Meta functions for proj lib
-	DuckDB_Proj_Version::Register(db);
-	DuckDB_Proj_Compiled_Version::Register(db);
+	DuckDB_Proj_Version::Register(loader);
+	DuckDB_Proj_Compiled_Version::Register(loader);
 }
 
 } // namespace duckdb

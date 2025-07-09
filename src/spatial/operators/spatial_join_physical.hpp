@@ -10,9 +10,9 @@ public:
 	static constexpr auto TYPE = PhysicalOperatorType::EXTENSION;
 
 public:
-	PhysicalSpatialJoin(LogicalOperator &op, PhysicalOperator &left, PhysicalOperator &right,
-	                    unique_ptr<Expression> spatial_predicate, JoinType join_type, idx_t estimated_cardinality,
-	                    bool has_const_distance, double const_distance);
+	PhysicalSpatialJoin(PhysicalPlan &physical_plan, LogicalOperator &op, PhysicalOperator &left,
+	                    PhysicalOperator &right, unique_ptr<Expression> spatial_predicate, JoinType join_type,
+	                    idx_t estimated_cardinality, bool has_const_distance, double const_distance);
 
 	//! The condition of the join
 	unique_ptr<Expression> condition;

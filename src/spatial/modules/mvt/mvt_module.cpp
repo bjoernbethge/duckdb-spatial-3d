@@ -6,7 +6,7 @@
 #include "spatial/geometry/geometry_serialization.hpp"
 #include "spatial/geometry/sgl.hpp"
 #include "spatial/spatial_types.hpp"
-#include <spatial/util/function_builder.hpp>
+#include "spatial/util/function_builder.hpp"
 
 namespace duckdb {
 
@@ -147,8 +147,8 @@ struct ST_TileEnvelope {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
-		FunctionBuilder::RegisterScalar(db, "ST_TileEnvelope", [](ScalarFunctionBuilder &func) {
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_TileEnvelope", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("tile_zoom", LogicalType::INTEGER);
 				variant.AddParameter("tile_x", LogicalType::INTEGER);
@@ -171,8 +171,8 @@ struct ST_TileEnvelope {
 //------------------------------------------------------------------------------
 //  Register
 //------------------------------------------------------------------------------
-void RegisterMapboxVectorTileModule(DatabaseInstance &db) {
-	ST_TileEnvelope::Register(db);
+void RegisterMapboxVectorTileModule(ExtensionLoader &loader) {
+	ST_TileEnvelope::Register(loader);
 };
 
 } // namespace duckdb

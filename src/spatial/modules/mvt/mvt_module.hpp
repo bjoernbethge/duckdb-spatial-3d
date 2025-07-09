@@ -2,8 +2,8 @@
 
 namespace duckdb {
 
-class DatabaseInstance;
+class ExtensionLoader;
 
-void RegisterMapboxVectorTileModule(DatabaseInstance &db);
+void RegisterMapboxVectorTileModule(ExtensionLoader &loader);
 
 } // namespace duckdb

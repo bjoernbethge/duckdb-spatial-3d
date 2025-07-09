@@ -307,8 +307,9 @@ public:
 //-----------------------------------------------------------------------------
 // Register
 //-----------------------------------------------------------------------------
-void RTreeModule::RegisterIndexPlanScan(DatabaseInstance &db) {
+void RTreeModule::RegisterIndexPlanScan(ExtensionLoader &loader) {
 	// Register the optimizer extension
+	auto &db = loader.GetDatabaseInstance();
 	db.config.optimizer_extensions.push_back(RTreeIndexScanOptimizer());
 }
 

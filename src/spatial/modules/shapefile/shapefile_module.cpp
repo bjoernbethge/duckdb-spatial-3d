@@ -6,7 +6,6 @@
 
 #include "duckdb/common/multi_file/multi_file_reader.hpp"
 #include "duckdb/function/replacement_scan.hpp"
-#include "duckdb/main/extension_util.hpp"
 #include "duckdb/parser/expression/constant_expression.hpp"
 #include "duckdb/parser/expression/function_expression.hpp"
 #include "duckdb/parser/tableref/table_function_ref.hpp"
@@ -17,7 +16,7 @@
 
 void SASetupDefaultHooks(SAHooks *hooks) {
 	// Should never be called, use OpenLL and pass in the hooks
-	throw duckdb::InternalException("SASetupDefaultHooks");
+	D_ASSERT(false);
 }
 
 namespace duckdb {
@@ -888,22 +887,22 @@ struct ST_ReadSHP {
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
-	static void Register(DatabaseInstance &db) {
+	static void Register(ExtensionLoader &loader) {
 		TableFunction read_func("ST_ReadSHP", {LogicalType::VARCHAR}, Execute, Bind, InitGlobal);
 
 		read_func.named_parameters["encoding"] = LogicalType::VARCHAR;
 		read_func.table_scan_progress = GetProgress;
 		read_func.cardinality = GetCardinality;
 		read_func.projection_pushdown = true;
-		ExtensionUtil::RegisterFunction(db, read_func);
+		loader.RegisterFunction(read_func);
 
 		InsertionOrderPreservingMap<string> tags;
 		tags.insert("ext", "spatial");
-		FunctionBuilder::AddTableFunctionDocs(db, "ST_ReadSHP", "Read a Shapefile without relying on the GDAL library",
-		                                      "", tags);
+		FunctionBuilder::AddTableFunctionDocs(loader, "ST_ReadSHP",
+		                                      "Read a Shapefile without relying on the GDAL library", "", tags);
 
 		// Replacement scan
-		auto &config = DBConfig::GetConfig(db);
+		auto &config = DBConfig::GetConfig(loader.GetDatabaseInstance());
 		config.replacement_scans.emplace_back(GetReplacementScan);
 	}
 };
@@ -1062,11 +1061,11 @@ struct Shapefile_Meta {
 		return result;
 	}
 
-	static void Register(DatabaseInstance &db) {
+	static void Register(ExtensionLoader &loader) {
 		TableFunction meta_func("shapefile_meta", {LogicalType::VARCHAR}, Execute, Bind, InitGlobal);
 		meta_func.table_scan_progress = GetProgress;
 		meta_func.cardinality = GetCardinality;
-		ExtensionUtil::RegisterFunction(db, MultiFileReader::CreateFunctionSet(meta_func));
+		loader.RegisterFunction(MultiFileReader::CreateFunctionSet(meta_func));
 	}
 };
 
@@ -1076,9 +1075,9 @@ struct Shapefile_Meta {
 // Module Registration
 //######################################################################################################################
 
-void RegisterShapefileModule(DatabaseInstance &db) {
-	ST_ReadSHP::Register(db);
-	Shapefile_Meta::Register(db);
+void RegisterShapefileModule(ExtensionLoader &loader) {
+	ST_ReadSHP::Register(loader);
+	Shapefile_Meta::Register(loader);
 }
 
 } // namespace duckdb
