@@ -7,14 +7,22 @@ on:
     branches:
       - main
     paths-ignore:
-      - '**/README.md'
+      - '**.md'
       - 'doc/**'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '**.txt'
   push:
     branches:
       - main
     paths-ignore:
-      - '**/README.md'
+      - '**.md'
       - 'doc/**'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '**.txt'
   workflow_dispatch:
 
 concurrency:
